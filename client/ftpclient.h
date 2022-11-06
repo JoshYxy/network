@@ -11,6 +11,7 @@
 // 定义标记
 enum MSGTAG
 {
+    MSG_LOGIN = 0,             //登录                 两者都使用
     MSG_FILENAME = 1,        // 文件名称                服务器使用
     MSG_FILESIZE = 2,        // 文件大小                客户端使用
     MSG_READY_READ = 3,        // 准备接受                客户端使用
@@ -82,3 +83,5 @@ void readMessage(struct MsgHeader*);
 void requestPwd(SOCKET);
 
 void requestLs(SOCKET);
+// 登录
+bool login(SOCKET);

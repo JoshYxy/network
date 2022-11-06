@@ -88,15 +88,19 @@ void listenToClient()
         return;
     }
  
-    printf("接受成功！\n");
+    printf("接受客户端连接成功！\n");
  
-        // 开始处理消息
- 
- 
-        while (processMag(clifd))
-        {
-            Sleep(200);
-        }
+    // 用户验证
+    if(!auth(clifd)) {
+        printf("客户端验证尝试次数达到上限或连接错误，断开连接");
+        Sleep(5000);
+        return;
+    }
+
+    // 开始处理消息
+    while (processMag(clifd)) {
+        Sleep(200);
+    }
  
 }
  
@@ -162,18 +166,63 @@ bool processMag(SOCKET clifd)
             sendMessage(clifd, inf);
             break;
 
+
     }
     return true;
 }
- 
-/*
-*1.客户端请求下载文件 —把文件名发送给服务器
-*2.服务器接收客户端发送的文件名 —根据文件名找到文件，把文件大小发送给客户端
-*3.客户端接收到文件大小—准备开始接受，开辟内存  准备完成要告诉服务器可以发送了
-*4.服务器接受的开始发送的指令开始发送
-*5.开始接收数据，存起来     接受完成，告诉服务器接收完成
-*6.关闭连接
-*/
+
+bool auth(SOCKET clifd) {
+    struct MsgHeader send_msg;
+    struct MsgHeader* rec_msg;
+    int try = 0;
+    char rec_string[80];
+    char *username;
+    char *password;
+    send_msg.msgID = MSG_LOGIN;
+
+    while(try < 5) {
+        try++;
+        int nRes = recv(clifd, g_recvBuf, 1024, 0);
+        if (nRes <= 0)
+        {
+            printf("客户端下线...%d", WSAGetLastError());
+            return false;
+        }
+
+        rec_msg = (struct MsgHeader*)g_recvBuf;
+        strcpy(rec_string, rec_msg->myUnion.fileInfo.fileName);
+        username = strtok(rec_string, " ");
+        password = strtok(NULL, " ");
+
+//        printf("%s\n%s\n", username, password);
+
+        if(!strcmp(username, USER) && !strcmp(password, PASS)) {  //比较客户端输入的用户名和密码
+            strcpy(send_msg.myUnion.fileInfo.fileName, "Success");
+            if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
+            {
+                printf("message send error: %d\n", WSAGetLastError());
+                return false;
+            }
+            return true;
+        }
+        else {
+            strcpy(send_msg.myUnion.fileInfo.fileName, "Failure");
+            if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
+            {
+                printf("message send error: %d\n", WSAGetLastError());
+                return false;
+            }
+        }
+    }
+    strcpy(send_msg.myUnion.fileInfo.fileName, "ReachMax");
+    if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
+    {
+        printf("message send error: %d\n", WSAGetLastError());
+        return false;
+    }
+    return false;
+}
+
 void getMessage(int type, char inf[505]) {
     char path[105];
     DIR *dp;
@@ -196,6 +245,14 @@ void getMessage(int type, char inf[505]) {
             return;
     }
 }
+/*
+*1.客户端请求下载文件 —把文件名发送给服务器
+*2.服务器接收客户端发送的文件名 —根据文件名找到文件，把文件大小发送给客户端
+*3.客户端接收到文件大小—准备开始接受，开辟内存  准备完成要告诉服务器可以发送了
+*4.服务器接受的开始发送的指令开始发送
+*5.开始接收数据，存起来     接受完成，告诉服务器接收完成
+*6.关闭连接
+*/
 bool readFile(SOCKET clifd, struct MsgHeader* pmsg)
 {
     FILE* pread = fopen(pmsg->myUnion.fileInfo.fileName, "rb");

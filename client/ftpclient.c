@@ -68,8 +68,15 @@ void connectToHost()
         printf("connect faild:%d", WSAGetLastError());
         return;
     }
- 
     printf("连接成功！\n");
+    if(!login(serfd)) {
+        printf("尝试次数达到上限，与服务器断开连接");
+        closesocket(serfd);
+        return;
+    }
+
+
+    printf("登录成功！\n");
     printf("***************************************\n");
     printf("1.传输文件给服务端\n");
     printf("2.从服务端取文件\n");
@@ -162,6 +169,35 @@ bool processMag(SOCKET serfd)
 
     return true;
 }
+bool login(SOCKET serfd) {
+    char username[30]; //TODO 长度检验
+    char password[30];
+    struct MsgHeader send_msg;
+    struct MsgHeader* rec_msg;
+    send_msg.msgID = MSG_LOGIN;
+
+    while(true) {
+        //发送用户和密码
+        printf("username >>");
+        scanf("%s", username);
+        printf("password >>");
+        scanf("%s", password);
+        strcpy(send_msg.myUnion.fileInfo.fileName, username);
+        strcat(send_msg.myUnion.fileInfo.fileName, " ");
+        strcat(send_msg.myUnion.fileInfo.fileName, password);
+        send(serfd, (char*)&send_msg, sizeof(struct MsgHeader), 0);
+        //接收检查结果
+
+        recv(serfd, g_recvBuf, 1024, 0);
+        rec_msg = (struct MsgHeader*)g_recvBuf;
+//        printf("%s\n",rec_msg->myUnion.fileInfo.fileName);
+        if(!strcmp(rec_msg->myUnion.fileInfo.fileName, "Success")) return true;
+        else if(!strcmp(rec_msg->myUnion.fileInfo.fileName, "ReachMax")) return false;
+        else {
+            printf("账号或密码错误，请重试\n");
+        }
+    }
+}
 void readMessage(struct MsgHeader* pmsg) {
 
     char *message = pmsg->myUnion.fileInfo.fileName;
@@ -169,14 +205,14 @@ void readMessage(struct MsgHeader* pmsg) {
 
 }
 void requestPwd(SOCKET serfd) {
-    struct MsgHeader file;
-    file.msgID = MSG_PWD;
-    send(serfd, (char*)&file, sizeof(struct MsgHeader), 0);
+    struct MsgHeader msg;
+    msg.msgID = MSG_PWD;
+    send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0);
 }
 void requestLs(SOCKET serfd) {
-    struct MsgHeader file;
-    file.msgID = MSG_LS;
-    send(serfd, (char*)&file, sizeof(struct MsgHeader), 0);
+    struct MsgHeader msg;
+    msg.msgID = MSG_LS;
+    send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0);
 }
 void downloadFileName(SOCKET serfd)
 {
