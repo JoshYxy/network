@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+D:/fdu/network/project-1/example/client/ftpclient.c
+stdio.h
+-
+stdlib.h
+-
+ftpclient.h
+D:/fdu/network/project-1/example/client/ftpclient.h
+
+D:/fdu/network/project-1/example/client/ftpclient.h
+WinSock2.h
+-
+stdbool.h
+-
+

@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+D:/fdu/network/project-1/example/server/ftpserver.c
+stdio.h
+-
+ftpserver.h
+D:/fdu/network/project-1/example/server/ftpserver.h
+
+D:/fdu/network/project-1/example/server/ftpserver.h
+stdbool.h
+-
+WinSock2.h
+-
+string.h
+-
+unistd.h
+-
+stdio.h
+-
+dirent.h
+-
+
