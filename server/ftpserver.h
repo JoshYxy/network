@@ -1,6 +1,28 @@
 #pragma once
+
+#ifdef _WIN32
+/* See http://stackoverflow.com/questions/12765743/getaddrinfo-on-win32 */
+    #ifndef _WIN32_WINNT
+        #define _WIN32_WINNT 0x0501  /* Windows XP. */
+    #endif
+    #include <winsock2.h>
+    #include <Ws2tcpip.h>
+    #define CLOSE closesocket
+    #define GET_ERROR WSAGetLastError()
+#else
+    /* Assume that any non-Windows platform uses POSIX-style sockets instead. */
+    #include <sys/socket.h>
+    #include <arpa/inet.h>
+    #include <netdb.h>  /* Needed for getaddrinfo() and freeaddrinfo() */
+    #include <unistd.h> /* Needed for close() */
+    #define INVALID_SOCKET -1
+    #define SOCKET_ERROR -1
+    #define SOCKET int
+    #define GET_ERROR geterror()
+    #define CLOSE close
+#endif
+
 #include <stdbool.h>
-#include <WinSock2.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -9,6 +31,9 @@
  
 #define SPORT 8888                 // 服务器端口号
 #define PACKET_SIZE (1024 - sizeof(int) * 3)
+
+extern int errno;
+int geterror(){return errno;}
 
 const char* USER = "admin";
 const char* PASS = "123456";

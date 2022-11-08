@@ -1,139 +1,207 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "ftpserver.h"
- 
-char g_recvBuf[1024] = { 0 };      // 用来接收客户端消息
-int g_fileSize;                    // 文件大小
-char* g_fileBuf;                   // 储存文件
+
+char g_recvBuf[1024] = { 0 };      // recv client msg
+int g_fileSize;                    // file size
+char* g_fileBuf;                   // file cache, store file which is ready to send to client
 char g_fileName[256];
+
 int main(void)
 {
     initSocket();
- 
+
+//    while(1){
     listenToClient();
- 
+//    }
+
     closeSocket();
- 
+
     return 0;
 }
- 
-// 初始化socket库
+
+#ifndef WIN32
+static void _split_whole_name(const char *whole_name, char *fname, char *ext) {
+    char *p_ext;
+
+    p_ext = rindex(whole_name, '.');
+    if (NULL != p_ext) {
+        if(ext) strcpy(ext, p_ext);
+        snprintf(fname, p_ext - whole_name + 1, "%s", whole_name);
+    } else {
+        if(ext) ext[0] = '\0';
+        if(fname) strcpy(fname, whole_name);
+    }
+}
+
+void _splitpath(const char *path, char *drive, char *dir, char *fname, char *ext) {
+    char *p_whole_name;
+
+    if(drive) drive[0] = '\0';
+    if (NULL == path)
+    {
+        if(dir) dir[0] = '\0';
+        if(fname) fname[0] = '\0';
+        if(ext) ext[0] = '\0';
+        return;
+    }
+
+    if ('/' == path[strlen(path)])
+    {
+        if(dir) strcpy(dir, path);
+        if(fname) fname[0] = '\0';
+        if(ext) ext[0] = '\0';
+        return;
+    }
+
+    p_whole_name = rindex(path, '/');
+    if (NULL != p_whole_name)
+    {
+        p_whole_name++;
+        _split_whole_name(p_whole_name, fname, ext);
+
+        snprintf(dir, p_whole_name - path, "%s", path);
+    }
+    else
+    {
+        _split_whole_name(path, fname, ext);
+        if(dir) dir[0] = '\0';
+    }
+}
+#endif
+
+// init socket lib
 bool initSocket()
 {
+#ifdef _WIN32
     WSADATA wsadata;
- 
-    if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)  // 启动协议,成功返回0
-    {
-        printf("WSAStartup faild: %d\n", WSAGetLastError());
-        return false;
-    }
- 
-    return true;
+
+        if (0 != WSAStartup(MAKEWORD(2, 2), &wsadata))
+        {
+            printf("WSAStartup failed: %d\n", WSAGetLastError());
+            return false;
+        }
+
+        return true;
+#else
+    return 0;
+#endif
+
 }
- 
-// 关闭socket库
+
+// close socket lib
 bool closeSocket()
 {
+#ifdef _WIN32
     if (0 != WSACleanup())
-    {
-        printf("WSACleanup faild: %d\n", WSAGetLastError());
-        return false;
-    }
- 
-    return true;
+        {
+            printf("WSACleanup failed: %d\n", WSAGetLastError());
+            return false;
+        }
+
+        return true;
+#else
+    return 0;
+#endif
 }
- 
-// 监听客户端连接
+
+// listen cilent
 void listenToClient()
 {
 
-    // 创建server socket套接字 地址、端口号,AF_INET是IPV4
+    // create server socket (addr, port, AF_INET is IPV4)
     SOCKET serfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
- 
+
     if (serfd == INVALID_SOCKET)
     {
-        printf("socket faild:%d", WSAGetLastError());
+        printf("Socket creation failed:%d\n", GET_ERROR);
+#ifdef _WIN32
         WSACleanup();
-        return;
-    }
- 
-    // 给socket绑定IP地址和端口号
-    struct sockaddr_in serAddr;
- 
-    serAddr.sin_family = AF_INET;
-    serAddr.sin_port = htons(SPORT);             // htons把本地字节序转为网络字节序
-    serAddr.sin_addr.S_un.S_addr = ADDR_ANY;     // 监听本机所有网卡
- 
-    if (0 != bind(serfd, (struct sockaddr*)&serAddr, sizeof(serAddr)))
-    {
-        printf("bind faild:%d", WSAGetLastError());
-        return;
-    }
- 
-    // 监听客户端连接
-    if (0 != listen(serfd, 10))                  // 10为队列最大数
-    {
-        printf("listen faild:%d", WSAGetLastError());
-        return;
-    }
- 
-    // 有客户端连接，接受连接
-    struct sockaddr_in cliAddr;
-    int len = sizeof(cliAddr);
- 
-    SOCKET clifd = accept(serfd, (struct sockaddr*)&cliAddr, &len);
- 
-    if (INVALID_SOCKET == clifd)
-    {
-        printf("accept faild:%d", WSAGetLastError());
-        return;
-    }
- 
-    printf("接受客户端连接成功！\n");
- 
-    // 用户验证
-    if(!auth(clifd)) {
-        printf("客户端验证尝试次数达到上限或连接错误，断开连接");
-        Sleep(5000);
+#endif
         return;
     }
 
-    // 开始处理消息
-    while (processMag(clifd)) {
-        Sleep(200);
+    // bind socket with IP addr and port
+    struct sockaddr_in serAddr;
+
+    serAddr.sin_family = AF_INET;
+    serAddr.sin_port = htons(SPORT);             // htons set local byte sequence to network sequence
+#ifdef _WIN32
+    serAddr.sin_addr.S_un.S_addr = ADDR_ANY;     // listen to all network card of the pc
+#else
+    serAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+#endif
+
+    if (0 != bind(serfd, (struct sockaddr*)&serAddr, sizeof(serAddr)))
+    {
+        printf("Bind socket with IP addr and port failed:%d\n", GET_ERROR);
+        return;
     }
- 
+
+    // listen to client connection
+    if (0 != listen(serfd, 10))                  // 10 is the maximum of the connection queue
+    {
+        printf("Listen failed:%d\n", GET_ERROR);
+        return;
+    }
+
+    // client connection, recv it
+    struct sockaddr_in cliAddr;
+    int len = sizeof(cliAddr);
+
+    SOCKET clifd = accept(serfd, (struct sockaddr*)&cliAddr, &len);
+
+    if (INVALID_SOCKET == clifd)
+    {
+        printf("Accept failed:%d\n", GET_ERROR);
+        return;
+    }
+
+    printf("Receiving client connection succeed!\n");
+
+    // user auth
+    if(!auth(clifd)) {
+        printf("User auth reach maximum retry or failed connection, disconnected.\n");
+#ifdef _WIN32
+        Sleep(5000);
+#else
+        sleep(5);
+#endif
+        return;
+    }
+
+    // processing msg
+    while (processMag(clifd)) {
+#ifdef _WIN32
+        Sleep(200);
+#else
+        sleep(1);
+#endif
+    }
+
 }
- 
-// 处理消息
+
+// processing msg
 bool processMag(SOCKET clifd)
 {
-    // 成功接收消息返回收到的字节数，否则返回0
-    int nRes = recv(clifd, g_recvBuf, 1024, 0);         // 接收
+    // if recv succeed, return the bytes of the msg, else return 0
+    int nRes = recv(clifd, g_recvBuf, 1024, 0);
 
     if (nRes <= 0)
     {
-        printf("客户端下线...%d", WSAGetLastError());
+        printf("Client leaving...%d\n", GET_ERROR);
         return false;
     }
- 
-    // 获取接受的的消息
+
+    // get the recved msg
     struct MsgHeader* msg = (struct MsgHeader*)g_recvBuf;
     struct MsgHeader exitmsg;
- 
-    /*
-    *MSG_FILENAME       = 1,    // 文件名称                服务器使用
-    *MSG_FILESIZE       = 2,    // 文件大小                客户端使用
-    *MSG_READY_READ     = 3,    // 准备接受                客户端使用
-    *MSG_SENDFILE       = 4,    // 发送                    服务器使用
-    *MSG_SUCCESSED      = 5,    // 传输完成                两者都使用
-    *MSG_OPENFILE_FAILD = 6     // 告诉客户端文件找不到    客户端使用
-     *
-    */
-    char inf[505]; //存放获取的本机信息
+
+    char inf[505]; //get the stored local information
     memset(inf, 0, sizeof(inf));
     switch (msg->msgID)
     {
-        case MSG_FILENAME:          // 1  第一次接收
+        case MSG_FILENAME:          // 1  first recv
             printf("%s\n", msg->myUnion.fileInfo.fileName);
             readFile(clifd, msg);
             break;
@@ -144,12 +212,12 @@ bool processMag(SOCKET clifd)
 
             exitmsg.msgID = MSG_SUCCESSED;
 
-            if (SOCKET_ERROR == send(clifd, (char*)&exitmsg, sizeof(struct MsgHeader), 0))   //失败发送给客户端
+            if (SOCKET_ERROR == send(clifd, (char*)&exitmsg, sizeof(struct MsgHeader), 0))   //send failed
             {
-                printf("send faild: %d\n", WSAGetLastError());
+                printf("send failed: %d\n", GET_ERROR);
                 return false;
             }
-            printf("完成！\n");
+            printf("Session Finished!\n");
             break;
         case MSG_CLIENTREADSENT: //7
             serverReady(clifd, msg);
@@ -185,7 +253,7 @@ bool auth(SOCKET clifd) {
         int nRes = recv(clifd, g_recvBuf, 1024, 0);
         if (nRes <= 0)
         {
-            printf("客户端下线...%d", WSAGetLastError());
+            printf("Client leaving...%d\n", GET_ERROR);
             return false;
         }
 
@@ -196,11 +264,11 @@ bool auth(SOCKET clifd) {
 
 //        printf("%s\n%s\n", username, password);
 
-        if(!strcmp(username, USER) && !strcmp(password, PASS)) {  //比较客户端输入的用户名和密码
+        if(!strcmp(username, USER) && !strcmp(password, PASS)) {  //compare username and pswd from client
             strcpy(send_msg.myUnion.fileInfo.fileName, "Success");
             if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
             {
-                printf("message send error: %d\n", WSAGetLastError());
+                printf("Message send error: %d\n", GET_ERROR);
                 return false;
             }
             return true;
@@ -209,7 +277,7 @@ bool auth(SOCKET clifd) {
             strcpy(send_msg.myUnion.fileInfo.fileName, "Failure");
             if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
             {
-                printf("message send error: %d\n", WSAGetLastError());
+                printf("Message send error: %d\n", GET_ERROR);
                 return false;
             }
         }
@@ -217,7 +285,7 @@ bool auth(SOCKET clifd) {
     strcpy(send_msg.myUnion.fileInfo.fileName, "ReachMax");
     if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
     {
-        printf("message send error: %d\n", WSAGetLastError());
+        printf("Message send error: %d\n", GET_ERROR);
         return false;
     }
     return false;
@@ -246,64 +314,66 @@ void getMessage(int type, char inf[505]) {
     }
 }
 /*
-*1.客户端请求下载文件 —把文件名发送给服务器
-*2.服务器接收客户端发送的文件名 —根据文件名找到文件，把文件大小发送给客户端
-*3.客户端接收到文件大小—准备开始接受，开辟内存  准备完成要告诉服务器可以发送了
-*4.服务器接受的开始发送的指令开始发送
-*5.开始接收数据，存起来     接受完成，告诉服务器接收完成
-*6.关闭连接
+*1.The Client wants to download: send the filename to server.
+*2.Server recv the client sent filename: find the file according to the filename, send the file size to client.
+*3.Client recv the file size:  perpare to recv file, alloc memory, when ready, tell the server to send.
+*4.Server recv ready instruction: send file.
+*5.Client start to recv and store data. When complete, tell the server complete.
+*6.Close connection.
 */
 bool readFile(SOCKET clifd, struct MsgHeader* pmsg)
 {
+    // open the file with binary mode
     FILE* pread = fopen(pmsg->myUnion.fileInfo.fileName, "rb");
- 
+
     if (pread == NULL)
     {
-        printf("找不到[%s]文件...\n", pmsg->myUnion.fileInfo.fileName);
- 
+        printf("Can't find file: [%s] ...\n", pmsg->myUnion.fileInfo.fileName);
+
         struct MsgHeader msg;
         msg.msgID = MSG_OPENFILE_FAILD;                                             // MSG_OPENFILE_FAILD = 6
- 
-        if (SOCKET_ERROR == send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0))   // 失败发送给客户端
+
+        if (SOCKET_ERROR == send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0))   // send failed
         {
-            printf("send faild: %d\n", WSAGetLastError());
+            printf("Send failed: %d\n", GET_ERROR);
         }
- 
+
         return false;
     }
- 
-    // 获取文件大小
+
+    // get the file size
     fseek(pread, 0, SEEK_END);
     g_fileSize = ftell(pread);
     fseek(pread, 0, SEEK_SET);
- 
-    // 把文件大小发给客户端
+
+    // send the file size to client
     char text[100];
     char tfname[200] = { 0 };
     struct MsgHeader msg;
- 
+
     msg.msgID = MSG_FILESIZE;                                       // MSG_FILESIZE = 2
     msg.myUnion.fileInfo.fileSize = g_fileSize;
- 
-    _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //只需要最后的名字加后缀
- 
+
+    // get the filename and suffix from the client msg header
+    _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //only add suffix to the last name
+
+    // send filename and file size to client
     strcat(tfname, text);
     strcpy(msg.myUnion.fileInfo.fileName, tfname);
- 
-    send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0);            // 文件名和后缀、文件大小发回客户端  第一次发送给客户端
- 
-    //读写文件内容
+    send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0);            // send filename, suffix and file size to client, first send
+
+    // alloc mem
     g_fileBuf = calloc(g_fileSize + 1, sizeof(char));
- 
+
     if (g_fileBuf == NULL)
     {
-        printf("内存不足，重试\n");
+        printf("No memory, please retry\n");
         return false;
     }
- 
+
     fread(g_fileBuf, sizeof(char), g_fileSize, pread);
     g_fileBuf[g_fileSize] = '\0';
- 
+
     fclose(pread);
     return true;
 }
@@ -316,109 +386,110 @@ void sendMessage(SOCKET clifd, char* message) {
 
     if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0))
     {
-        printf("message send error: %d\n", WSAGetLastError());
+        printf("message send error: %d\n", GET_ERROR);
         return;
     }
 }
 bool sendFile(SOCKET clifd, struct MsgHeader* pms)
 {
-    struct MsgHeader msg;                                                     // 告诉客户端准备接收文件
+    struct MsgHeader msg;                                                     // tell the client ready to recv file
     msg.msgID = MSG_READY_READ;
- 
-    // 如果文件的长度大于每个数据包能传送的大小（1012），那么久分块
+
+    // if the total size of the whole file is larger than a packet size, dispatch
     for (size_t i = 0; i < g_fileSize; i += PACKET_SIZE)                       // PACKET_SIZE = 1012
     {
         msg.myUnion.packet.nStart = i;
- 
-        // 包的大小大于总数据的大小
+
+        // the reset size of the sending file is smaller than a packet size
         if (i + PACKET_SIZE + 1 > g_fileSize)
         {
             msg.myUnion.packet.nsize = g_fileSize - i;
         }
-        else
-        {
+        // the reset size of the sending file is still larger than a packet size
+        else{
             msg.myUnion.packet.nsize = PACKET_SIZE;
         }
- 
+
+        // copy data from local cache buffer to packet
         memcpy(msg.myUnion.packet.buf, g_fileBuf + msg.myUnion.packet.nStart, msg.myUnion.packet.nsize);
- 
-        if (SOCKET_ERROR == send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0))  // 告诉客户端可以发送
+
+        if (SOCKET_ERROR == send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0))  // send packet to client
         {
-            printf("文件发送失败：%d\n", WSAGetLastError());
+            printf("Send file failed: %d\n", GET_ERROR);
         }
     }
- 
+
     return true;
 }
- 
+
 void serverReady(SOCKET clifd, struct MsgHeader* pmsg)
 {
     g_fileSize = pmsg->myUnion.fileInfo.fileSize;
     char text[100];
     char tfname[200] = { 0 };
- 
-    _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //只需要最后的名字加后缀
- 
+
+    _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //only add suffix to the last name
+
     strcat(tfname, text);
     strcpy(g_fileName, tfname);
-    g_fileBuf = calloc(g_fileSize + 1, sizeof(char));         // 申请空间
- 
+    g_fileBuf = calloc(g_fileSize + 1, sizeof(char));         // alloc mem
+
     if (g_fileBuf == NULL)
     {
-        printf("申请内存失败\n");
+        printf("Alloc falied!\n");
     }
     else
     {
-        struct MsgHeader msg;  
+        struct MsgHeader msg;
         msg.msgID = MSG_SERVERREAD;
- 
-        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0))   // 第二次发送
+
+        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0))   // send the second time
         {
-            printf("客户端 send error: %d\n", WSAGetLastError());
+            printf("Client send error: %d\n", GET_ERROR);
             return;
         }
     }
- 
-    printf("filename:%s    size:%d  \n", pmsg->myUnion.fileInfo.fileName, pmsg->myUnion.fileInfo.fileSize);
+
+    printf("Filename:%s\tSize:%d\t\n", pmsg->myUnion.fileInfo.fileName, pmsg->myUnion.fileInfo.fileSize);
 }
- 
+
 bool writeFile(SOCKET clifd, struct MsgHeader* pmsg)
 {
     if (g_fileBuf == NULL)
     {
         return false;
     }
- 
+
     int nStart = pmsg->myUnion.packet.nStart;
     int nsize = pmsg->myUnion.packet.nsize;
- 
-    memcpy(g_fileBuf + nStart, pmsg->myUnion.packet.buf, nsize);    // strncmpy一样
-    printf("packet size:%d %d\n", nStart + nsize, g_fileSize);
- 
-    if (nStart + nsize >= g_fileSize)                       // 判断数据是否发完数据
+
+    memcpy(g_fileBuf + nStart, pmsg->myUnion.packet.buf, nsize);    // the same as strncmpy
+    printf("Packet size:%d %d\n", nStart + nsize, g_fileSize);
+
+    if (nStart + nsize >= g_fileSize)                       // check if the data sending is complete
     {
         FILE* pwrite;
         struct MsgHeader msg;
- 
+
         pwrite = fopen(g_fileName, "wb");
         msg.msgID = MSG_SUCCESSED;
- 
+
         if (pwrite == NULL)
         {
-            printf("write file error...\n");
+            printf("Write file error...\n");
             return false;
         }
- 
+
         fwrite(g_fileBuf, sizeof(char), g_fileSize, pwrite);
         fclose(pwrite);
- 
+
         free(g_fileBuf);
         g_fileBuf = NULL;
- 
+
         send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0);
- 
+
         return false;
     }
- 
+
     return true;
 }

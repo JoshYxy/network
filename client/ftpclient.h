@@ -1,13 +1,40 @@
 #pragma once
-#include <WinSock2.h>
+
+#ifdef _WIN32
+/* See http://stackoverflow.com/questions/12765743/getaddrinfo-on-win32 */
+    #ifndef _WIN32_WINNT
+        #define _WIN32_WINNT 0x0501  /* Windows XP. */
+    #endif
+    #include <winsock2.h>
+    #include <Ws2tcpip.h>
+    #define CLOSE closesocket
+    #define GET_ERROR WSAGetLastError()
+#else
+/* Assume that any non-Windows platform uses POSIX-style sockets instead. */
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>  /* Needed for getaddrinfo() and freeaddrinfo() */
+#include <unistd.h> /* Needed for close() */
+#include <string.h>
+#define INVALID_SOCKET -1
+#define SOCKET_ERROR -1
+#define SOCKET int
+#define GET_ERROR geterror()
+#define CLOSE close
+#endif
+
 #pragma comment(lib,"ws2_32.lib")  // 加载静态库
 #include <stdbool.h>
- 
+
+
+
 #define SPORT 8888                 // 服务器端口号
 #define PACKET_SIZE (1024 - sizeof(int) * 3)
- 
- 
- 
+
+extern int errno;
+int geterror(){return errno;}
+
+
 // 定义标记
 enum MSGTAG
 {
@@ -25,9 +52,9 @@ enum MSGTAG
     MSG_RECV = 11,
     MSG_LS = 12
 };
- 
+
 #pragma pack(1)                     // 设置结构体1字节对齐**************
- 
+
 struct MsgHeader                    // 封装消息头
 {
     enum MSGTAG msgID;              // 当前消息标记   4
@@ -45,35 +72,35 @@ struct MsgHeader                    // 封装消息头
             char buf[PACKET_SIZE];
         }packet;
     }myUnion;
- 
+
 };
- 
+
 #pragma pack()
- 
+
 // 初始化socket库
 bool initSocket();
- 
+
 // 关闭socket库
 bool closeSocket();
- 
+
 // 监听客户端连接
 void connectToHost();
- 
+
 // 处理消息
 bool processMag(SOCKET serfd);
- 
+
 // 获取文件名
 void downloadFileName(SOCKET serfd);
- 
+
 // 文件内容读进内存
 void readyread(SOCKET, struct MsgHeader*);
- 
+
 // 写入文件内容
 bool writeFile(SOCKET, struct MsgHeader*);
- 
+
 //服务端发送文件路径和大小 然后在自己的缓冲区将文件缓存下来
 void clientReadySend(SOCKET);
- 
+
 //准备开始发送文件
 bool sendFile(SOCKET, struct MsgHeader*);
 
