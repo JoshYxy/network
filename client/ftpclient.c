@@ -108,11 +108,11 @@ void connectToHost()
 
     printf("Login Succeed!\n");
     printf("***************************************\n");
-    printf("1.Send file to server\n");
-    printf("2.Get file from server\n");
-    printf("3.Quit\n");
-    printf("4.pwd\n");
-    printf("5.ls\n");
+    printf("put:Send file to server\n");
+    printf("get:Get file from server\n");
+    printf("quit:Quit FTP\n");
+    printf("pwd:Print current working directory\n");
+    printf("ls:List\n");
     printf("***************************************\n");
     char flag[105];
     while(1) {
