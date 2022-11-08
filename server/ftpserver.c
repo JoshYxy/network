@@ -248,7 +248,7 @@ bool auth(SOCKET clifd) {
     char *password;
     send_msg.msgID = MSG_LOGIN;
 
-    while(try < 5) {
+    while(try < MAXTRY) {
         try++;
         int nRes = recv(clifd, g_recvBuf, 1024, 0);
         if (nRes <= 0)
@@ -273,7 +273,7 @@ bool auth(SOCKET clifd) {
             }
             return true;
         }
-        else {
+        else if(try < MAXTRY){
             strcpy(send_msg.myUnion.fileInfo.fileName, "Failure");
             if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
             {

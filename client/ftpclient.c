@@ -7,6 +7,22 @@ char* g_fileBuf;          // store file content
 char g_recvBuf[1024];     // msg buffer
 int g_fileSize;           // total file size
 
+void readInput(char* buffer, int size)
+{
+    char* nl = NULL;
+    memset(buffer, 0, size);
+
+    if(fgets(buffer, size, stdin) != NULL)
+    {
+        nl = strchr(buffer, '\n');
+        if(nl != 0)
+        {
+            *nl = '\0';
+        }
+    }
+
+    fflush(stdin);
+};
 int main(void)
 {
     initSocket();
@@ -98,47 +114,46 @@ void connectToHost()
     printf("4.pwd\n");
     printf("5.ls\n");
     printf("***************************************\n");
-    while (1)
-    {
-        int flag;
-        do {
-            printf("ftp >>");
-            scanf("%d", &flag);
-        } while (!(flag == 1 || flag == 2 || flag == 3 || flag == 4 || flag == 5));
+    char flag[105];
+    while(1) {
+        printf("ftp >>");
+        readInput(flag, 100);
 
-        if (flag == 1)
-        {
+        if(!strcmp(flag, "put")) {
             printf("Now start sending file to server:");
             clientReadySend(serfd);
             while(processMag(serfd))
             {}
         }
-        else if(flag == 2)
-        {
+        else if(!strcmp(flag, "get")) {
             printf("Now start recving file from server:\n");
             downloadFileName(serfd);// starting to processing received msg, 100 is the gap of msg sending
             while (processMag(serfd))
             {}
         }
-        else if(flag == 4) {
+        else if(!strcmp(flag, "pwd")) {
             requestPwd(serfd);
             while (processMag(serfd))
             {}
         }
-        else if(flag == 5) {
+        else if(!strcmp(flag, "ls")) {
             requestLs(serfd);
             while (processMag(serfd))
             {}
         }
-        else
-        {
+        else if(!strcmp(flag, "quit")) {
             printf("FTP quiting...\n");
             CLOSE(serfd);
             return;
         }
+        else {
+            printf("Invalid ftp command\n");
+        }
+    }
+
 //        printf("\nPress Any Key To Continue:\n");
 //        getchar();
-    }
+
 }
 
 // handle msg
@@ -184,8 +199,8 @@ bool processMag(SOCKET serfd)
     return true;
 }
 bool login(SOCKET serfd) {
-    char username[30]; //TODO ???????
-    char password[30];
+    char username[105];
+    char password[105];
     struct MsgHeader send_msg;
     struct MsgHeader* rec_msg;
     send_msg.msgID = MSG_LOGIN;
@@ -193,9 +208,11 @@ bool login(SOCKET serfd) {
     while(true) {
         //send user and pswd
         printf("username >>");
-        scanf("%s", username);
+//        scanf("%s", username);
+        readInput(username, MAXLOGIN);
         printf("password >>");
-        scanf("%s", password);
+        readInput(password, MAXLOGIN);
+//        scanf("%s", password);
         strcpy(send_msg.myUnion.fileInfo.fileName, username);
         strcat(send_msg.myUnion.fileInfo.fileName, " ");
         strcat(send_msg.myUnion.fileInfo.fileName, password);

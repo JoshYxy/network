@@ -1,7 +1,9 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/client.dir/ftpclient.c.o"
-  "client"
+  "CMakeFiles/client.dir/ftpclient.obj"
+  "client.exe"
+  "client.exe.manifest"
   "client.pdb"
+  "libclient.dll.a"
 )
 
 # Per-language clean rules from dependency scanning.

@@ -30,6 +30,7 @@
 
 #define SPORT 8888                 // 服务器端口号
 #define PACKET_SIZE (1024 - sizeof(int) * 3)
+const int MAXLOGIN = 100;
 
 extern int errno;
 int geterror(){return errno;}
@@ -112,3 +113,5 @@ void requestPwd(SOCKET);
 void requestLs(SOCKET);
 // 登录
 bool login(SOCKET);
+
+void readInput(char *, int);

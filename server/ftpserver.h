@@ -32,6 +32,8 @@
 #define SPORT 8888                 // 服务器端口号
 #define PACKET_SIZE (1024 - sizeof(int) * 3)
 
+const int MAXTRY = 5;
+
 extern int errno;
 int geterror(){return errno;}
 
