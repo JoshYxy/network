@@ -40,18 +40,22 @@ int geterror(){return errno;}
 enum MSGTAG
 {
     MSG_LOGIN = 0,             //登录                 两者都使用
-    MSG_FILENAME = 1,        // 文件名称                服务器使用
-    MSG_FILESIZE = 2,        // 文件大小                客户端使用
-    MSG_READY_READ = 3,        // 准备接受                客户端使用
-    MSG_SENDFILE = 4,        // 发送                    服务器使用
-    MSG_SUCCESSED = 5,        // 传输完成                两者都使用
-    MSG_OPENFILE_FAILD = 6,         // 告诉客户端文件找不到    客户端使用
+    MSG_FILENAME = 1,         // 文件名称              服务器使用
+    MSG_FILESIZE = 2,         // 文件大小              客户端使用
+    MSG_READY_READ = 3,         // 准备接受              客户端使用
+    MSG_SENDFILE = 4,         // 发送                  服务器使用
+    MSG_SUCCESSED = 5,         // 传输完成              两者都使用
+    MSG_OPENFILE_FAILD = 6,          // 告诉客户端文件找不到  客户端使用
     MSG_CLIENTREADSENT = 7,        //客户端发送路径和文件大小
-    MSG_SERVERREAD  = 8,        //服务端申请空间
+    MSG_SERVERREAD = 8,        //服务端申请空间
     MSG_CLIENTSENT = 9,            //客户端传输
     MSG_PWD = 10,
     MSG_RECV = 11,
-    MSG_LS = 12
+    MSG_LS = 12,
+    MSG_DELETE = 13,        //delete file on server, SERVER
+    MSG_NOFILE = 14,        //delete file doesn't exist, CLIENT
+    MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
+
 };
 
 #pragma pack(1)                     // 设置结构体1字节对齐**************
@@ -88,7 +92,7 @@ bool closeSocket();
 void connectToHost();
 
 // 处理消息
-bool processMag(SOCKET serfd);
+bool processMsg(SOCKET serfd);
 
 // 获取文件名
 void downloadFileName(SOCKET serfd);
@@ -115,3 +119,5 @@ void requestLs(SOCKET);
 bool login(SOCKET);
 
 void readInput(char *, int);
+
+void deleteFile(SOCKET serfd);

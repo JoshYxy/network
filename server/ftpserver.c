@@ -27,7 +27,7 @@ static void _split_whole_name(const char *whole_name, char *fname, char *ext) {
     p_ext = rindex(whole_name, '.');
     if (NULL != p_ext) {
         if(ext) strcpy(ext, p_ext);
-        snprintf(fname, p_ext - whole_name + 1, "%s", whole_name);
+        if(fname) snprintf(fname, p_ext - whole_name + 1, "%s", whole_name);
     } else {
         if(ext) ext[0] = '\0';
         if(fname) strcpy(fname, whole_name);
@@ -60,7 +60,7 @@ void _splitpath(const char *path, char *drive, char *dir, char *fname, char *ext
         p_whole_name++;
         _split_whole_name(p_whole_name, fname, ext);
 
-        snprintf(dir, p_whole_name - path, "%s", path);
+        if(dir) snprintf(dir, p_whole_name - path, "%s", path);
     }
     else
     {
@@ -108,6 +108,7 @@ bool closeSocket()
 // listen cilent
 void listenToClient()
 {
+    printf("Server running...\n");
 
     // create server socket (addr, port, AF_INET is IPV4)
     SOCKET serfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -233,8 +234,9 @@ bool processMag(SOCKET clifd)
             getMessage(MSG_LS, inf);
             sendMessage(clifd, inf);
             break;
-
-
+        case MSG_DELETE:
+            deletefile(clifd,msg);
+            break;
     }
     return true;
 }
@@ -347,8 +349,8 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg)
     fseek(pread, 0, SEEK_SET);
 
     // send the file size to client
-    char text[100];
-    char tfname[200] = { 0 };
+    char text[MAXSUFFIX];
+    char tfname[MAXSTRING] = { 0 };
     struct MsgHeader msg;
 
     msg.msgID = MSG_FILESIZE;                                       // MSG_FILESIZE = 2
@@ -425,8 +427,8 @@ bool sendFile(SOCKET clifd, struct MsgHeader* pms)
 void serverReady(SOCKET clifd, struct MsgHeader* pmsg)
 {
     g_fileSize = pmsg->myUnion.fileInfo.fileSize;
-    char text[100];
-    char tfname[200] = { 0 };
+    char text[MAXSUFFIX];
+    char tfname[MAXSTRING] = { 0 };
 
     _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //only add suffix to the last name
 
@@ -491,5 +493,42 @@ bool writeFile(SOCKET clifd, struct MsgHeader* pmsg)
         return false;
     }
 
+    return true;
+}
+
+bool deletefile(SOCKET clifd, struct MsgHeader* pmsg){
+
+    struct MsgHeader msg;
+
+    // get the filename to delete
+    char suffix[MAXSUFFIX];
+    char deleteFilename[MAXSTRING];
+    _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, deleteFilename, suffix);
+    strcat(deleteFilename, suffix);
+
+    // find if the file exist
+    if(access(deleteFilename, F_OK) !=0 ){
+        // file doesn't exist, send back failed msg.
+        msg.msgID = MSG_NOFILE;
+        // send back to client
+        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("deletefile: Send to client MSG_NOFILE error: %d\n", GET_ERROR);
+        else printf("deletefile: No file.\n");
+        return false;
+    }
+
+    // find file, delete it
+    if(remove(deleteFilename) != 0){
+        // deletion failed
+        msg.msgID = MSG_DELETIONFAILED;
+        // send back to client
+        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("deletefile: Send to client MSG_DELETIONFAILED error: %d\n", GET_ERROR);
+        else printf("deletefile: MSG_DELETIONFAILED, %d.\n",GET_ERROR);
+        return false;
+    }
+
+    // deletion succeed
+    msg.msgID = MSG_SUCCESSED;
+    if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("deletefile: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
+    else printf("deletefile: SUCCESS!\n");
     return true;
 }

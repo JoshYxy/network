@@ -33,6 +33,8 @@
 #define PACKET_SIZE (1024 - sizeof(int) * 3)
 
 const int MAXTRY = 5;
+const int MAXSUFFIX = 100;
+const int MAXSTRING = 200;
 
 extern int errno;
 int geterror(){return errno;}
@@ -54,7 +56,11 @@ enum MSGTAG
     MSG_CLIENTSENT = 9,            //客户端传输
     MSG_PWD = 10,
     MSG_RECV = 11,
-    MSG_LS = 12
+    MSG_LS = 12,
+    MSG_DELETE = 13,        //delete file on server, SERVER
+    MSG_NOFILE = 14,        //delete file doesn't exist, CLIENT
+    MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
+
 };
  
 #pragma pack(1)                     // 设置结构体1字节对齐
@@ -111,3 +117,6 @@ void getMessage(int, char*);
 
 // 用户验证
 bool auth(SOCKET);
+
+// delete file on server
+bool deletefile(SOCKET clifd, struct MsgHeader* pmsg);

@@ -110,6 +110,7 @@ void connectToHost()
     printf("***************************************\n");
     printf("put:Send file to server\n");
     printf("get:Get file from server\n");
+    printf("delete:Delete file on server\n");
     printf("quit:Quit FTP\n");
     printf("pwd:Print current working directory\n");
     printf("ls:List\n");
@@ -122,23 +123,29 @@ void connectToHost()
         if(!strcmp(flag, "put")) {
             printf("Now start sending file to server:");
             clientReadySend(serfd);
-            while(processMag(serfd))
+            while(processMsg(serfd))
             {}
         }
         else if(!strcmp(flag, "get")) {
             printf("Now start recving file from server:\n");
             downloadFileName(serfd);// starting to processing received msg, 100 is the gap of msg sending
-            while (processMag(serfd))
+            while (processMsg(serfd))
+            {}
+        }
+        else if(!strcmp(flag, "delete")) {
+            printf("Now start deleting file on server:\n");
+            deleteFile(serfd);
+            while (processMsg(serfd))
             {}
         }
         else if(!strcmp(flag, "pwd")) {
             requestPwd(serfd);
-            while (processMag(serfd))
+            while (processMsg(serfd))
             {}
         }
         else if(!strcmp(flag, "ls")) {
             requestLs(serfd);
-            while (processMag(serfd))
+            while (processMsg(serfd))
             {}
         }
         else if(!strcmp(flag, "quit")) {
@@ -157,26 +164,36 @@ void connectToHost()
 }
 
 // handle msg
-bool processMag(SOCKET serfd)
+bool processMsg(SOCKET serfd)
 {
 
     recv(serfd, g_recvBuf, 1024, 0);                     // recv msg
     struct MsgHeader* msg = (struct MsgHeader*)g_recvBuf;
 
     /*
-    *MSG_FILENAME       = 1,       // filename               server use
-    *MSG_FILESIZE       = 2,       // filesize               client use
-    *MSG_READY_READ     = 3,       // ready to recv          client use
-    *MSG_SENDFILE       = 4,       // send                   server use
-    *MSG_SUCCESSED      = 5,       // send complete          both use
-    *MSG_OPENFILE_FAILD = 6        // tell the client that can't find file    client use
+    MSG_LOGIN = 0,             //登录                 两者都使用
+    MSG_FILENAME = 1,         // 文件名称              服务器使用
+    MSG_FILESIZE = 2,         // 文件大小              客户端使用
+    MSG_READY_READ = 3,         // 准备接受              客户端使用
+    MSG_SENDFILE = 4,         // 发送                  服务器使用
+    MSG_SUCCESSED = 5,         // 传输完成              两者都使用
+    MSG_OPENFILE_FAILD = 6,          // 告诉客户端文件找不到  客户端使用
+    MSG_CLIENTREADSENT = 7,        //客户端发送路径和文件大小
+    MSG_SERVERREAD = 8,        //服务端申请空间
+    MSG_CLIENTSENT = 9,            //客户端传输
+    MSG_PWD = 10,
+    MSG_RECV = 11,
+    MSG_LS = 12,
+    MSG_DELETE = 13,        //delete file on server, SERVER
+    MSG_NOFILE = 14,        //delete file doesn't exist, CLIENT
+    MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
     */
 
     switch (msg->msgID)
     {
         case MSG_OPENFILE_FAILD:         // 6
-            downloadFileName(serfd);
-            break;
+            printf("File doesn't exist on server!\n");
+            return false;
         case MSG_FILESIZE:               // 2  recv for the first time
             readyread(serfd, msg);
             break;
@@ -190,9 +207,14 @@ bool processMag(SOCKET serfd)
             printf("Ready to Send!");
             sendFile(serfd, msg);
             break;
-
         case MSG_RECV:                  //added by yxy
             readMessage(msg);
+            return false;
+        case MSG_NOFILE:
+            printf("File doesn't exist on server!\n");
+            return false;
+        case MSG_DELETIONFAILED:
+            printf("Deletion Failed!\n");
             return false;
     }
 
@@ -252,7 +274,7 @@ void downloadFileName(SOCKET serfd)
 
     printf("Enter download filename:");
 
-    scanf("%s", fileName);                              // file path
+    readInput(fileName,1000);                            // file path
     file.msgID = MSG_FILENAME;                               // MSG_FILENAME = 1
     strcpy(file.myUnion.fileInfo.fileName, fileName);
     send(serfd, (char*)&file, sizeof(struct MsgHeader), 0);  // send to server for the first time
@@ -386,4 +408,13 @@ bool sendFile(SOCKET serfd, struct MsgHeader* pms)
     }
 
     return true;
+}
+
+void deleteFile(SOCKET serfd){
+    struct MsgHeader msg;
+    msg.msgID = MSG_DELETE;
+    printf("Enter the filename to delete:");
+    readInput(msg.myUnion.fileInfo.fileName, 1000);
+
+    if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0)) printf("deleteFile: Message send error: %d\n", GET_ERROR);
 }
