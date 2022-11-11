@@ -484,7 +484,17 @@ bool writeFile(SOCKET clifd, struct MsgHeader* pmsg){
     int nsize = pmsg->myUnion.packet.nsize;
 
     memcpy(g_fileBuf + nStart, pmsg->myUnion.packet.buf, nsize);    // the same as strncmpy
-    printf("Receiving: %.2f%%\r", ((nStart + nsize)/(double)g_fileSize)*100);
+    long currsize;
+    if(nStart + nsize >= g_fileSize){
+        currsize = g_fileSize;
+    }
+    else{
+        currsize = nStart + nsize;
+    }
+
+    printf("Receiving: %.2f%%\r", ((currsize)/(double)g_fileSize)*100);
+    fflush(stdout);
+
 
     if (nStart + nsize >= g_fileSize)                       // check if the data sending is complete
     {
