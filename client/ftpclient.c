@@ -22,7 +22,8 @@ void readInput(char* buffer, int size)
     }
 
     fflush(stdin);
-};
+}
+
 int main(void)
 {
     initSocket();
@@ -33,6 +34,56 @@ int main(void)
 
     return 0;
 }
+
+#ifndef WIN32
+static void _split_whole_name(const char *whole_name, char *fname, char *ext) {
+    char *p_ext;
+
+    p_ext = rindex(whole_name, '.');
+    if (NULL != p_ext) {
+        if(ext) strcpy(ext, p_ext);
+        if(fname) snprintf(fname, p_ext - whole_name + 1, "%s", whole_name);
+    } else {
+        if(ext) ext[0] = '\0';
+        if(fname) strcpy(fname, whole_name);
+    }
+}
+
+void _splitpath(const char *path, char *drive, char *dir, char *fname, char *ext) {
+    char *p_whole_name;
+
+    if(drive) drive[0] = '\0';
+    if (NULL == path)
+    {
+        if(dir) dir[0] = '\0';
+        if(fname) fname[0] = '\0';
+        if(ext) ext[0] = '\0';
+        return;
+    }
+
+    if ('/' == path[strlen(path)])
+    {
+        if(dir) strcpy(dir, path);
+        if(fname) fname[0] = '\0';
+        if(ext) ext[0] = '\0';
+        return;
+    }
+
+    p_whole_name = rindex(path, '/');
+    if (NULL != p_whole_name)
+    {
+        p_whole_name++;
+        _split_whole_name(p_whole_name, fname, ext);
+
+        if(dir) snprintf(dir, p_whole_name - path, "%s", path);
+    }
+    else
+    {
+        _split_whole_name(path, fname, ext);
+        if(dir) dir[0] = '\0';
+    }
+}
+#endif
 
 // init the socket lib in win
 bool initSocket()
@@ -104,37 +155,24 @@ void connectToHost()
         CLOSE(serfd);
         return;
     }
-
-
     printf("Login Succeed!\n");
-    printf("***************************************\n");
-    printf("put:Send file to server\n");
-    printf("get:Get file from server\n");
-    printf("delete:Delete file on server\n");
-    printf("quit:Quit FTP\n");
-    printf("pwd:Print current working directory\n");
-    printf("ls:List\n");
-    printf("***************************************\n");
+    printHelp();
     char flag[105];
     while(1) {
         printf("ftp >>");
         readInput(flag, 100);
-
-        if(!strcmp(flag, "put")) {
-            printf("Now start sending file to server:");
-            clientReadySend(serfd);
+        if(memcmp(flag, "put ",4)==0) {
+            if(!clientReadySend(serfd, flag+4)) continue;
             while(processMsg(serfd))
             {}
         }
-        else if(!strcmp(flag, "get")) {
-            printf("Now start recving file from server:\n");
-            downloadFileName(serfd);// starting to processing received msg, 100 is the gap of msg sending
+        else if(memcmp(flag, "get ",4)==0) {
+            downloadFileName(serfd, flag+4);// starting to processing received msg, 100 is the gap of msg sending
             while (processMsg(serfd))
             {}
         }
-        else if(!strcmp(flag, "delete")) {
-            printf("Now start deleting file on server:\n");
-            deleteFile(serfd);
+        else if(memcmp(flag, "delete ",7)==0) {
+            deleteFile(serfd, flag+7);
             while (processMsg(serfd))
             {}
         }
@@ -147,6 +185,9 @@ void connectToHost()
             requestLs(serfd);
             while (processMsg(serfd))
             {}
+        }
+        else if(!strcmp(flag, "help")) {
+            printHelp();
         }
         else if(!strcmp(flag, "quit")) {
             printf("FTP quiting...\n");
@@ -204,7 +245,7 @@ bool processMsg(SOCKET serfd)
             printf("Session Complete!\n");
             return false;
         case MSG_SERVERREAD:
-            printf("Ready to Send!");
+            printf("Ready to Send!\n");
             sendFile(serfd, msg);
             break;
         case MSG_RECV:                  //added by yxy
@@ -230,11 +271,9 @@ bool login(SOCKET serfd) {
     while(true) {
         //send user and pswd
         printf("username >>");
-//        scanf("%s", username);
         readInput(username, MAXLOGIN);
         printf("password >>");
         readInput(password, MAXLOGIN);
-//        scanf("%s", password);
         strcpy(send_msg.myUnion.fileInfo.fileName, username);
         strcat(send_msg.myUnion.fileInfo.fileName, " ");
         strcat(send_msg.myUnion.fileInfo.fileName, password);
@@ -267,14 +306,15 @@ void requestLs(SOCKET serfd) {
     msg.msgID = MSG_LS;
     send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0);
 }
-void downloadFileName(SOCKET serfd)
+void downloadFileName(SOCKET serfd, char* cmd)
 {
+    printf("Now start recving file from server:");
     char fileName[1024];
     struct MsgHeader file;
 
-    printf("Enter download filename:");
+    memcpy(fileName, cmd, 1000);
+    printf("%s\n",fileName);
 
-    readInput(fileName,1000);                            // file path
     file.msgID = MSG_FILENAME;                               // MSG_FILENAME = 1
     strcpy(file.myUnion.fileInfo.fileName, fileName);
     send(serfd, (char*)&file, sizeof(struct MsgHeader), 0);  // send to server for the first time
@@ -308,8 +348,7 @@ void readyread(SOCKET serfd, struct MsgHeader* pmsg)
 
 bool writeFile(SOCKET serfd, struct MsgHeader* pmsg)
 {
-    if (g_fileBuf == NULL)
-    {
+    if (g_fileBuf == NULL){
         printf("Didn't prepare memory for file! ERROR!\n");
         return false;
     }
@@ -318,7 +357,16 @@ bool writeFile(SOCKET serfd, struct MsgHeader* pmsg)
     int nsize = pmsg->myUnion.packet.nsize;
 
     memcpy(g_fileBuf + nStart, pmsg->myUnion.packet.buf, nsize);    // same as strncmpy
-    printf("packet size:%d %d\n", nStart + nsize, g_fileSize);
+    long currsize;
+    if(nStart + nsize >= g_fileSize){
+        currsize = g_fileSize;
+    }
+    else{
+        currsize = nStart + nsize;
+    }
+
+    printf("Receiving: %.2f%%\r", ((currsize)/(double)g_fileSize)*100);
+    fflush(stdout);
 
     if (nStart + nsize >= g_fileSize)                       // check if the file is sent completely
     {
@@ -341,21 +389,47 @@ bool writeFile(SOCKET serfd, struct MsgHeader* pmsg)
         g_fileBuf = NULL;
 
         send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0);
-
-        return false;
+        printf("Receiving: 100.00%%\n");
+        return true;
     }
 
     return true;
 }
 
-void clientReadySend(SOCKET serfd)
-{
+bool clientReadySend(SOCKET serfd, char* cmd){
+    printf("Now start sending file to server: ");
     struct MsgHeader msg;
     msg.msgID = MSG_CLIENTREADSENT;
     char fileName[1024] = { 0 };
-    printf("Enter the filename to upload:");
-    scanf("%s", fileName);
-    FILE* pread = fopen(fileName, "rb");
+    char suffix[MAXSUFFIX]={0};
+    memcpy(fileName, cmd, 1000);
+    printf("%s\n",fileName);
+
+    // judge the file type from its suffix
+    _splitpath(fileName,NULL,NULL,NULL,suffix);
+    FILE* pread;
+    bool isText = false;
+
+    for(int i=0;i<TEXTFILETYPES;i++){
+        if(!strcmp(suffix,textFiles[i])){
+            isText = true;
+            break;
+        }
+    }
+
+    if(isText){
+        pread = fopen(fileName, "rt");
+        printf("Sending with text mode...\n");
+    }
+    else{
+        pread = fopen(fileName, "rb");
+        printf("Sending with binary mode...\n");
+    }
+
+    if(pread == NULL) {
+        printf("File open failed: %s, Error code: %d\n",fileName,GET_ERROR);
+        return false;
+    }
 
     fseek(pread, 0, SEEK_END);
     g_fileSize = ftell(pread);
@@ -376,6 +450,7 @@ void clientReadySend(SOCKET serfd)
     g_fileBuf[g_fileSize] = '\0';
 
     fclose(pread);
+    return true;
 }
 
 
@@ -387,16 +462,19 @@ bool sendFile(SOCKET serfd, struct MsgHeader* pms)
     // if the total size of the whole file is larger than a packet size, dispatch
     for (size_t i = 0; i < g_fileSize; i += PACKET_SIZE)                       // PACKET_SIZE = 1012
     {
+        long currsize;
         msg.myUnion.packet.nStart = i;
 
         // the total size of the whole file is smaller than a packet size
         if (i + PACKET_SIZE + 1 > g_fileSize)
         {
             msg.myUnion.packet.nsize = g_fileSize - i;
+            currsize = g_fileSize;
         }
         else
         {
             msg.myUnion.packet.nsize = PACKET_SIZE;
+            currsize = i + PACKET_SIZE;
         }
 
         memcpy(msg.myUnion.packet.buf, g_fileBuf + msg.myUnion.packet.nStart, msg.myUnion.packet.nsize);
@@ -405,16 +483,33 @@ bool sendFile(SOCKET serfd, struct MsgHeader* pms)
         {
             printf("Sending file failed: %d\n", GET_ERROR);
         }
+
+        printf("Sending: %.2f%%\r", ((currsize)/(double)g_fileSize)*100);
+        fflush(stdout);
     }
 
+    printf("Sending: 100.00%%\n");
     return true;
 }
 
-void deleteFile(SOCKET serfd){
+void deleteFile(SOCKET serfd, char*cmd){
+    printf("Now start deleting file on server:");
     struct MsgHeader msg;
     msg.msgID = MSG_DELETE;
-    printf("Enter the filename to delete:");
-    readInput(msg.myUnion.fileInfo.fileName, 1000);
-
+    memcpy(msg.myUnion.fileInfo.fileName,cmd, 1000);
+    printf("%s\n",msg.myUnion.fileInfo.fileName);
     if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0)) printf("deleteFile: Message send error: %d\n", GET_ERROR);
+}
+
+void printHelp(){
+    printf("***************************************\n");
+    printf("[ Enter valid commands below to use FTP system! ]\n");
+    printf("put [filename]: Send file to server\n");
+    printf("get [filename]: Get file from server\n");
+    printf("delete [filename]: Delete file on server\n");
+    printf("pwd: Print current working directory\n");
+    printf("ls: List all files in current directory on server\n");
+    printf("help: Re-print valid commands\n");
+    printf("quit: Quit FTP system\n");
+    printf("***************************************\n");
 }

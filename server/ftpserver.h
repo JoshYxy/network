@@ -31,6 +31,7 @@
  
 #define SPORT 8888                 // 服务器端口号
 #define PACKET_SIZE (1024 - sizeof(int) * 3)
+#define TEXTFILETYPES 7
 
 const int MAXTRY = 5;
 const int MAXSUFFIX = 100;
@@ -41,6 +42,9 @@ int geterror(){return errno;}
 
 const char* USER = "admin";
 const char* PASS = "123456";
+
+char textFiles[][TEXTFILETYPES] = {".txt",".c",".h",".css",".js",".php",".html"};
+
 // 定义标记
 enum MSGTAG
 {
@@ -72,7 +76,7 @@ struct MsgHeader                    // 封装消息头
     {
         struct Mystruct
         {
-            int fileSize;           // 文件大小  4
+            long fileSize;           // 文件大小  4
             char fileName[256];     // 文件名    256
         }fileInfo;
         struct

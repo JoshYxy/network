@@ -203,7 +203,6 @@ bool processMag(SOCKET clifd)
     switch (msg->msgID)
     {
         case MSG_FILENAME:          // 1  first recv
-            printf("%s\n", msg->myUnion.fileInfo.fileName);
             readFile(clifd, msg);
             break;
         case MSG_SENDFILE:          // 4
@@ -325,12 +324,35 @@ void getMessage(int type, char inf[505]) {
 */
 bool readFile(SOCKET clifd, struct MsgHeader* pmsg)
 {
-    // open the file with binary mode
-    FILE* pread = fopen(pmsg->myUnion.fileInfo.fileName, "rb");
+    char text[MAXSUFFIX];
+    char tfname[MAXSTRING] = { 0 };
+    // get the filename and suffix from the client msg header
+    _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //only add suffix to the last name
+    strcat(tfname, text);
+    printf("%s\n", tfname);
+
+    FILE* pread;
+    // judge the file type from its suffix
+    bool isText = false;
+    for(int i=0;i<TEXTFILETYPES;i++){
+        if(!strcmp(text,textFiles[i])){
+            isText = true;
+            break;
+        }
+    }
+
+    if(isText){
+        pread = fopen(tfname, "rt");
+        printf("Sending with text mode...\n");
+    }
+    else{
+        pread = fopen(tfname, "rb");
+        printf("Sending with binary mode...\n");
+    }
 
     if (pread == NULL)
     {
-        printf("Can't find file: [%s] ...\n", pmsg->myUnion.fileInfo.fileName);
+        printf("Can't find file: [%s] ...\n", tfname);
 
         struct MsgHeader msg;
         msg.msgID = MSG_OPENFILE_FAILD;                                             // MSG_OPENFILE_FAILD = 6
@@ -339,7 +361,6 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg)
         {
             printf("Send failed: %d\n", GET_ERROR);
         }
-
         return false;
     }
 
@@ -349,34 +370,32 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg)
     fseek(pread, 0, SEEK_SET);
 
     // send the file size to client
-    char text[MAXSUFFIX];
-    char tfname[MAXSTRING] = { 0 };
     struct MsgHeader msg;
-
     msg.msgID = MSG_FILESIZE;                                       // MSG_FILESIZE = 2
     msg.myUnion.fileInfo.fileSize = g_fileSize;
 
-    // get the filename and suffix from the client msg header
-    _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //only add suffix to the last name
-
     // send filename and file size to client
-    strcat(tfname, text);
     strcpy(msg.myUnion.fileInfo.fileName, tfname);
-    send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0);            // send filename, suffix and file size to client, first send
 
     // alloc mem
     g_fileBuf = calloc(g_fileSize + 1, sizeof(char));
-
     if (g_fileBuf == NULL)
     {
         printf("No memory, please retry\n");
         return false;
     }
 
+    // reset the mem
     fread(g_fileBuf, sizeof(char), g_fileSize, pread);
     g_fileBuf[g_fileSize] = '\0';
-
     fclose(pread);
+
+    // send filesize to client
+    if(SOCKET_ERROR == send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0)) {
+        printf("message send error: %d\n", GET_ERROR);
+        return false;
+    }             // send filename, suffix and file size to client, first send
+
     return true;
 }
 
@@ -392,8 +411,8 @@ void sendMessage(SOCKET clifd, char* message) {
         return;
     }
 }
-bool sendFile(SOCKET clifd, struct MsgHeader* pms)
-{
+
+bool sendFile(SOCKET clifd, struct MsgHeader* pms){
     struct MsgHeader msg;                                                     // tell the client ready to recv file
     msg.msgID = MSG_READY_READ;
 
@@ -452,11 +471,10 @@ void serverReady(SOCKET clifd, struct MsgHeader* pmsg)
         }
     }
 
-    printf("Filename:%s\tSize:%d\t\n", pmsg->myUnion.fileInfo.fileName, pmsg->myUnion.fileInfo.fileSize);
+    printf("Filename:%s\tSize:%d\t\n", tfname, pmsg->myUnion.fileInfo.fileSize);
 }
 
-bool writeFile(SOCKET clifd, struct MsgHeader* pmsg)
-{
+bool writeFile(SOCKET clifd, struct MsgHeader* pmsg){
     if (g_fileBuf == NULL)
     {
         return false;
@@ -466,7 +484,7 @@ bool writeFile(SOCKET clifd, struct MsgHeader* pmsg)
     int nsize = pmsg->myUnion.packet.nsize;
 
     memcpy(g_fileBuf + nStart, pmsg->myUnion.packet.buf, nsize);    // the same as strncmpy
-    printf("Packet size:%d %d\n", nStart + nsize, g_fileSize);
+    printf("Receiving: %.2f%%\r", ((nStart + nsize)/(double)g_fileSize)*100);
 
     if (nStart + nsize >= g_fileSize)                       // check if the data sending is complete
     {
@@ -475,6 +493,7 @@ bool writeFile(SOCKET clifd, struct MsgHeader* pmsg)
 
         pwrite = fopen(g_fileName, "wb");
         msg.msgID = MSG_SUCCESSED;
+        printf("Receiving: 100.00%%\n");
 
         if (pwrite == NULL)
         {
@@ -490,7 +509,7 @@ bool writeFile(SOCKET clifd, struct MsgHeader* pmsg)
 
         send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0);
 
-        return false;
+        return true;
     }
 
     return true;

@@ -30,10 +30,14 @@
 
 #define SPORT 8888                 // 服务器端口号
 #define PACKET_SIZE (1024 - sizeof(int) * 3)
+#define TEXTFILETYPES 7
 const int MAXLOGIN = 100;
+const int MAXSUFFIX = 100;
 
 extern int errno;
 int geterror(){return errno;}
+
+char textFiles[][TEXTFILETYPES] = {".txt",".c",".h",".css",".js",".php",".html"};
 
 
 // 定义标记
@@ -67,7 +71,7 @@ struct MsgHeader                    // 封装消息头
     {
         struct Mystruct
         {
-            int fileSize;           // 文件大小  4
+            long fileSize;           // 文件大小  4
             char fileName[256];     // 文件名    256
         }fileInfo;
         struct
@@ -95,7 +99,7 @@ void connectToHost();
 bool processMsg(SOCKET serfd);
 
 // 获取文件名
-void downloadFileName(SOCKET serfd);
+void downloadFileName(SOCKET serfd, char* cmd);
 
 // 文件内容读进内存
 void readyread(SOCKET, struct MsgHeader*);
@@ -104,7 +108,7 @@ void readyread(SOCKET, struct MsgHeader*);
 bool writeFile(SOCKET, struct MsgHeader*);
 
 //服务端发送文件路径和大小 然后在自己的缓冲区将文件缓存下来
-void clientReadySend(SOCKET);
+bool clientReadySend(SOCKET, char* cmd);
 
 //准备开始发送文件
 bool sendFile(SOCKET, struct MsgHeader*);
@@ -120,4 +124,6 @@ bool login(SOCKET);
 
 void readInput(char *, int);
 
-void deleteFile(SOCKET serfd);
+void deleteFile(SOCKET serfd, char* cmd);
+
+void printHelp();
