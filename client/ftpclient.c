@@ -312,7 +312,7 @@ void downloadFileName(SOCKET serfd, char* cmd)
     char fileName[1024];
     struct MsgHeader file;
 
-    memcpy(fileName, cmd, 1000);
+    strcpy(fileName, cmd);
     printf("%s\n",fileName);
 
     file.msgID = MSG_FILENAME;                               // MSG_FILENAME = 1
@@ -402,7 +402,7 @@ bool clientReadySend(SOCKET serfd, char* cmd){
     msg.msgID = MSG_CLIENTREADSENT;
     char fileName[1024] = { 0 };
     char suffix[MAXSUFFIX]={0};
-    memcpy(fileName, cmd, 1000);
+    strcpy(fileName, cmd);
     printf("%s\n",fileName);
 
     // judge the file type from its suffix
@@ -496,7 +496,7 @@ void deleteFile(SOCKET serfd, char*cmd){
     printf("Now start deleting file on server:");
     struct MsgHeader msg;
     msg.msgID = MSG_DELETE;
-    memcpy(msg.myUnion.fileInfo.fileName,cmd, 1000);
+    strcpy(msg.myUnion.fileInfo.fileName,cmd);
     printf("%s\n",msg.myUnion.fileInfo.fileName);
     if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0)) printf("deleteFile: Message send error: %d\n", GET_ERROR);
 }
