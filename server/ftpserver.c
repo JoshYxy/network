@@ -111,15 +111,14 @@ void listenToClient()
     printf("Server running...\n");
 
     // create server socket (addr, port, AF_INET is IPV4)
-    SOCKET serfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-    if (serfd == INVALID_SOCKET)
-    {
-        printf("Socket creation failed:%d\n", GET_ERROR);
-#ifdef _WIN32
-        WSACleanup();
-#endif
-        return;
+    SOCKET serfd;
+    while((serfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET){
+        #ifdef _WIN32
+            WSACleanup();
+            Sleep(1000);
+        #else
+            sleep(1);
+        #endif
     }
 
     // bind socket with IP addr and port
@@ -172,18 +171,18 @@ void listenToClient()
     }
 
     // processing msg
-    while (processMag(clifd)) {
-#ifdef _WIN32
-        Sleep(200);
-#else
-        sleep(1);
-#endif
-    }
+    while (processMsg(clifd)) {}
 
+//    sleep before return
+//    #ifdef _WIN32
+//        Sleep(2000);
+//    #else
+//        sleep(2);
+//    #endif
 }
 
 // processing msg
-bool processMag(SOCKET clifd)
+bool processMsg(SOCKET clifd)
 {
     // if recv succeed, return the bytes of the msg, else return 0
     int nRes = recv(clifd, g_recvBuf, 1024, 0);
@@ -513,6 +512,7 @@ bool writeFile(SOCKET clifd, struct MsgHeader* pmsg){
 
         fwrite(g_fileBuf, sizeof(char), g_fileSize, pwrite);
         fclose(pwrite);
+        printf("Successfully received file: %s\n",g_fileName);
 
         free(g_fileBuf);
         g_fileBuf = NULL;

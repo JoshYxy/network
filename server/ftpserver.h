@@ -101,7 +101,7 @@ bool closeSocket();
 void listenToClient();
  
 // 处理消息
-bool processMag(SOCKET clifd);
+bool processMsg(SOCKET clifd);
  
 // 读取文件，获得文件大小
 bool readFile(SOCKET, struct MsgHeader*);
