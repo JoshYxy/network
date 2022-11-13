@@ -239,6 +239,9 @@ bool processMsg(SOCKET clifd)
         case MSG_MKDIR:
             makeDirectory(clifd,msg);
             break;
+        case MSG_CD:
+            chDirectory(clifd,msg);
+            break;
     }
     return true;
 }
@@ -585,4 +588,32 @@ bool makeDirectory(SOCKET clifd, struct MsgHeader* pmsg){
         return false;
     }
 
+}
+
+bool chDirectory(SOCKET clifd, struct MsgHeader* pmsg){
+    struct MsgHeader msg;
+    char path[256];
+    strcpy(path, pmsg->myUnion.directoryInfo.directoryName);
+    //
+    if (!strcmp(path, "..")) {//parent directory
+        chdir("..");
+        msg.msgID = MSG_SUCCESSED;
+        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("cd(parent): Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
+        else printf("cd(parent): SUCCESS!\n");
+        return true;
+    }
+    else {
+        if(chdir(path)==0){//success
+            msg.msgID = MSG_SUCCESSED;
+            if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("cd: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
+            else printf("cd: SUCCESS!\n");
+            return true;
+        }
+        else{//fail
+            msg.msgID =MSG_CDFAILED;
+            if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("cd: Send to client MSG_CDFAILED error: %d\n", GET_ERROR);
+            else printf("cd: MSG_CDFAILED, %d.\n",GET_ERROR);
+            return false;
+        }
+    }
 }

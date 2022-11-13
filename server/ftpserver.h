@@ -66,7 +66,8 @@ enum MSGTAG
     MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
     MSG_MKDIR = 16,         //mkdir a directory, SERVER
     MSG_SAMEDIR =17,       //same dir name,   CLIENT
-
+    MSG_CD =18,         //cd to a directory , SERVER
+    MSG_CDFAILED =19,   //cd failed,   CLIENT
 };
  
 #pragma pack(1)                     // 设置结构体1字节对齐
@@ -132,3 +133,6 @@ bool deletefile(SOCKET clifd, struct MsgHeader* pmsg);
 
 //make a directory
 bool makeDirectory(SOCKET clifd, struct MsgHeader* pmsg);
+
+//chdir
+bool chDirectory(SOCKET clifd, struct MsgHeader* pmsg);

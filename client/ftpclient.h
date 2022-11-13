@@ -61,6 +61,8 @@ enum MSGTAG
     MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
     MSG_MKDIR = 16,         //mkdir a directory, SERVER
     MSG_SAMEDIR =17,       //same dir name,   CLIENT
+    MSG_CD =18,         //cd to a directory , SERVER
+    MSG_CDFAILED =19,   //cd failed,   CLIENT
 };
 
 #pragma pack(1)                     // 设置结构体1字节对齐**************
@@ -82,7 +84,7 @@ struct MsgHeader                    // 封装消息头
             char buf[PACKET_SIZE];
         }packet;
         struct {
-            char directoryName[256];//目录名  256
+            char directoryName[256];//目录名/目录路径  256
         }directoryInfo;
     }myUnion;
 
@@ -131,5 +133,7 @@ void readInput(char *, int);
 void deleteFile(SOCKET serfd, char* cmd);
 //gza新加
 void requestMkdir(SOCKET serfd, char* cmd);
+
+void requestCd(SOCKET serfd, char* cmd);
 
 void printHelp();

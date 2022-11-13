@@ -199,6 +199,11 @@ void connectToHost()
             while (processMsg(serfd))
             {}
         }
+        else if(memcmp(flag, "cd ",3)==0){
+            requestCd(serfd, flag+3);
+            while (processMsg(serfd))
+            {}
+        }
         else {
             printf("Invalid ftp command\n");
         }
@@ -235,6 +240,8 @@ bool processMsg(SOCKET serfd)
     MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
      MSG_MKDIR = 16,         //mkdir a directory, SERVER
     MSG_SAMEDIR =17,       //same dir name,   CLIENT
+     MSG_CD =18,         //cd to a directory , SERVER
+    MSG_CDFAILED =19,   //cd failed,   CLIENT
     */
 
     switch (msg->msgID)
@@ -266,6 +273,9 @@ bool processMsg(SOCKET serfd)
             return false;
         case  MSG_SAMEDIR:
             printf("Same name directory has existed!\n");
+            return false;
+        case  MSG_CDFAILED:
+            printf("Cd failed!\n");
             return false;
     }
 
@@ -519,7 +529,14 @@ void requestMkdir(SOCKET serfd, char* cmd){
     strcpy(msg.myUnion.directoryInfo.directoryName,directoryName);
     send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0);
 }
-
+void requestCd(SOCKET serfd, char* cmd){
+    struct MsgHeader msg;
+    char path[256];
+    strcpy(path, cmd);
+    msg.msgID =MSG_CD;
+    strcpy(msg.myUnion.directoryInfo.directoryName,path);
+    send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0);
+}
 void printHelp(){
     printf("***************************************\n");
     printf("[ Enter valid commands below to use FTP system! ]\n");
@@ -529,6 +546,7 @@ void printHelp(){
     printf("pwd: Print current working directory\n");
     printf("ls: List all files in current directory on server\n");
     printf("mkdir: Make a new directory on server\n");
+    printf("cd: Change to the remote directory on the remote machine\n");
     printf("help: Re-print valid commands\n");
     printf("quit: Quit FTP system\n");
     printf("***************************************\n");
