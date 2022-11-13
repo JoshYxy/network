@@ -1,5 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/client.dir/ftpclient.obj"
+  "CMakeFiles/client.dir/ftpclient.c.obj"
+  "CMakeFiles/client.dir/ftpclient.c.obj.d"
   "client.exe"
   "client.exe.manifest"
   "client.pdb"

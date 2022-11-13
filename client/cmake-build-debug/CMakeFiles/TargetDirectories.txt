@@ -1,3 +1,3 @@
-D:/fdu/network/project-1/example/client/cmake-build-debug/CMakeFiles/client.dir
-D:/fdu/network/project-1/example/client/cmake-build-debug/CMakeFiles/edit_cache.dir
-D:/fdu/network/project-1/example/client/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+C:/Users/Emonter/Desktop/fdu/fdu5/net/network/network/client/cmake-build-debug/CMakeFiles/client.dir
+C:/Users/Emonter/Desktop/fdu/fdu5/net/network/network/client/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/Emonter/Desktop/fdu/fdu5/net/network/network/client/cmake-build-debug/CMakeFiles/rebuild_cache.dir
