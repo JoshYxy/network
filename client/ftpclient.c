@@ -194,6 +194,11 @@ void connectToHost()
             CLOSE(serfd);
             return;
         }
+        else if(memcmp(flag, "mkdir ",6)==0){
+            requestMkdir(serfd, flag+6);
+            while (processMsg(serfd))
+            {}
+        }
         else {
             printf("Invalid ftp command\n");
         }
@@ -228,6 +233,8 @@ bool processMsg(SOCKET serfd)
     MSG_DELETE = 13,        //delete file on server, SERVER
     MSG_NOFILE = 14,        //delete file doesn't exist, CLIENT
     MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
+     MSG_MKDIR = 16,         //mkdir a directory, SERVER
+    MSG_SAMEDIR =17,       //same dir name,   CLIENT
     */
 
     switch (msg->msgID)
@@ -256,6 +263,9 @@ bool processMsg(SOCKET serfd)
             return false;
         case MSG_DELETIONFAILED:
             printf("Deletion Failed!\n");
+            return false;
+        case  MSG_SAMEDIR:
+            printf("Same name directory has existed!\n");
             return false;
     }
 
@@ -290,6 +300,7 @@ bool login(SOCKET serfd) {
         }
     }
 }
+
 void readMessage(struct MsgHeader* pmsg) {
 
     char *message = pmsg->myUnion.fileInfo.fileName;
@@ -401,7 +412,7 @@ bool clientReadySend(SOCKET serfd, char* cmd){
     struct MsgHeader msg;
     msg.msgID = MSG_CLIENTREADSENT;
     char fileName[1024] = { 0 };
-    char suffix[MAXSUFFIX]={0};
+    char suffix[MAXSUFFIX];
     strcpy(fileName, cmd);
     printf("%s\n",fileName);
 
@@ -500,6 +511,14 @@ void deleteFile(SOCKET serfd, char*cmd){
     printf("%s\n",msg.myUnion.fileInfo.fileName);
     if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0)) printf("deleteFile: Message send error: %d\n", GET_ERROR);
 }
+void requestMkdir(SOCKET serfd, char* cmd){
+    struct MsgHeader msg;
+    char directoryName[256];
+    strcpy(directoryName, cmd);
+    msg.msgID = MSG_MKDIR;
+    strcpy(msg.myUnion.directoryInfo.directoryName,directoryName);
+    send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0);
+}
 
 void printHelp(){
     printf("***************************************\n");
@@ -509,6 +528,7 @@ void printHelp(){
     printf("delete [filename]: Delete file on server\n");
     printf("pwd: Print current working directory\n");
     printf("ls: List all files in current directory on server\n");
+    printf("mkdir: Make a new directory on server\n");
     printf("help: Re-print valid commands\n");
     printf("quit: Quit FTP system\n");
     printf("***************************************\n");

@@ -64,6 +64,8 @@ enum MSGTAG
     MSG_DELETE = 13,        //delete file on server, SERVER
     MSG_NOFILE = 14,        //delete file doesn't exist, CLIENT
     MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
+    MSG_MKDIR = 16,         //mkdir a directory, SERVER
+    MSG_SAMEDIR =17,       //same dir name,   CLIENT
 
 };
  
@@ -85,6 +87,9 @@ struct MsgHeader                    // 封装消息头
             int nsize;              // 该包的数据大小
             char buf[PACKET_SIZE];
         }packet;
+        struct {
+            char directoryName[256];//目录名  256
+        }directoryInfo;
     } myUnion;
  
 };
@@ -124,3 +129,6 @@ bool auth(SOCKET);
 
 // delete file on server
 bool deletefile(SOCKET clifd, struct MsgHeader* pmsg);
+
+//make a directory
+bool makeDirectory(SOCKET clifd, struct MsgHeader* pmsg);

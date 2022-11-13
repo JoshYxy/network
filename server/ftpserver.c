@@ -7,6 +7,7 @@ int g_fileSize;                    // file size
 char* g_fileBuf;                   // file cache, store file which is ready to send to client
 char g_fileName[256];
 
+
 int main(void)
 {
     initSocket();
@@ -235,6 +236,9 @@ bool processMsg(SOCKET clifd)
         case MSG_DELETE:
             deletefile(clifd,msg);
             break;
+        case MSG_MKDIR:
+            makeDirectory(clifd,msg);
+            break;
     }
     return true;
 }
@@ -324,7 +328,7 @@ void getMessage(int type, char inf[505]) {
 bool readFile(SOCKET clifd, struct MsgHeader* pmsg)
 {
     char text[MAXSUFFIX];
-    char tfname[MAXSTRING] = { 0 };
+    char tfname[MAXSTRING] ;
     // get the filename and suffix from the client msg header
     _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //only add suffix to the last name
     strcat(tfname, text);
@@ -446,7 +450,7 @@ void serverReady(SOCKET clifd, struct MsgHeader* pmsg)
 {
     g_fileSize = pmsg->myUnion.fileInfo.fileSize;
     char text[MAXSUFFIX];
-    char tfname[MAXSTRING] = { 0 };
+    char tfname[MAXSTRING] ;
 
     _splitpath(pmsg->myUnion.fileInfo.fileName, NULL, NULL, tfname, text);  //only add suffix to the last name
 
@@ -560,4 +564,25 @@ bool deletefile(SOCKET clifd, struct MsgHeader* pmsg){
     if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("deletefile: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
     else printf("deletefile: SUCCESS!\n");
     return true;
+}
+
+bool makeDirectory(SOCKET clifd, struct MsgHeader* pmsg){
+    struct MsgHeader msg;
+    char directoryName[256];
+    strcpy(directoryName, pmsg->myUnion.directoryInfo.directoryName);
+    // find if the directory exist
+    if(_access(directoryName, 0) == -1){//not exist
+        mkdir(directoryName);
+        msg.msgID = MSG_SUCCESSED;
+        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("mkdir: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
+        else printf("mkdir: SUCCESS!\n");
+        return true;
+    }
+    else{//exist
+        msg.msgID =MSG_SAMEDIR;
+        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("mkdir: Send to client MSG_SAMEDIR error: %d\n", GET_ERROR);
+        else printf("mkdir: MSG_SAMEDIR, %d.\n",GET_ERROR);
+        return false;
+    }
+
 }
