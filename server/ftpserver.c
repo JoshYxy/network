@@ -267,11 +267,12 @@ bool auth(SOCKET clifd) {
         rec_msg = (struct MsgHeader*)g_recvBuf;
         strcpy(rec_string, rec_msg->myUnion.fileInfo.fileName);
         username = strtok(rec_string, " ");
+
         password = strtok(NULL, " ");
 
 //        printf("%s\n%s\n", username, password);
 
-        if(!strcmp(username, USER) && !strcmp(password, PASS)) {  //compare username and pswd from client
+        if(username && password && !strcmp(username, USER) && !strcmp(password, PASS)) {  //compare username and pswd from client
             strcpy(send_msg.myUnion.fileInfo.fileName, "Success");
             if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
             {
