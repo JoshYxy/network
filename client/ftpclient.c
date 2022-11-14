@@ -242,6 +242,7 @@ bool processMsg(SOCKET serfd)
     MSG_SAMEDIR =17,       //same dir name,   CLIENT
      MSG_CD =18,         //cd to a directory , SERVER
     MSG_CDFAILED =19,   //cd failed,   CLIENT
+     MSG_NULLNAME =20  //NAME=null,   CLIENT
     */
 
     switch (msg->msgID)
@@ -276,6 +277,9 @@ bool processMsg(SOCKET serfd)
             return false;
         case  MSG_CDFAILED:
             printf("Cd failed!\n");
+            return false;
+        case MSG_NULLNAME:
+            printf("Try to create a directory with no name\n");
             return false;
     }
 

@@ -575,8 +575,13 @@ bool makeDirectory(SOCKET clifd, struct MsgHeader* pmsg){
     char directoryName[256];
     strcpy(directoryName, pmsg->myUnion.directoryInfo.directoryName);
     // find if the directory exist
-    if(_access(directoryName, 0) == -1){//not exist
-        mkdir(directoryName);
+        if(_access(directoryName, 0) == -1){//not exist
+            if(mkdir(directoryName) == -1){
+                msg.msgID =MSG_NULLNAME;
+                if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("mkdir: Send to client MSG_NULLNAME error: %d\n", GET_ERROR);
+                else printf("mkdir: make an empty name directory!\n");
+                return false;
+            }
         msg.msgID = MSG_SUCCESSED;
         if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("mkdir: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
         else printf("mkdir: SUCCESS!\n");

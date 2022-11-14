@@ -63,6 +63,7 @@ enum MSGTAG
     MSG_SAMEDIR =17,       //same dir name,   CLIENT
     MSG_CD =18,         //cd to a directory , SERVER
     MSG_CDFAILED =19,   //cd failed,   CLIENT
+    MSG_NULLNAME =20  //NAME=null,   CLIENT
 };
 
 #pragma pack(1)                     // 设置结构体1字节对齐**************
