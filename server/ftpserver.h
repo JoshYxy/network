@@ -15,6 +15,7 @@
     #include <arpa/inet.h>
     #include <netdb.h>  /* Needed for getaddrinfo() and freeaddrinfo() */
     #include <unistd.h> /* Needed for close() */
+    #include <sys/stat.h> /* Need for mkdir */
     #define INVALID_SOCKET -1
     #define SOCKET_ERROR -1
     #define SOCKET int
@@ -27,10 +28,11 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <sys/stat.h>       // for dir check
 #pragma comment(lib,"ws2_32.lib")  // 加载静态库
  
 #define SPORT 8888                 // 服务器端口号
-#define PACKET_SIZE (1024 - sizeof(int) * 3)
+#define PACKET_SIZE (1024 - sizeof(int) * 4)
 #define TEXTFILETYPES 7
 
 const int MAXTRY = 5;
@@ -68,7 +70,9 @@ enum MSGTAG
     MSG_SAMEDIR =17,       //same dir name,   CLIENT
     MSG_CD =18,         //cd to a directory , SERVER
     MSG_CDFAILED =19,   //cd failed,   CLIENT
-    MSG_NULLNAME =20  //NAME=null,   CLIENT
+    MSG_NULLNAME =20,  //NAME=null,   CLIENT
+    MSG_RECVFAILED = 21,     // recv failed, CLIENT
+    MSG_EMPTYFILE = 22      // try to send empty file, CLIENT
 };
  
 #pragma pack(1)                     // 设置结构体1字节对齐
@@ -76,6 +80,7 @@ enum MSGTAG
 struct MsgHeader                    // 封装消息头
 {
     enum MSGTAG msgID;              // 当前消息标记   4
+    int port;
     union MyUnion
     {
         struct Mystruct

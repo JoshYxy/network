@@ -25,11 +25,12 @@
 
 #pragma comment(lib,"ws2_32.lib")  // 加载静态库
 #include <stdbool.h>
-
+#include <sys/stat.h>       // for dir check
 
 
 #define SPORT 8888                 // 服务器端口号
-#define PACKET_SIZE (1024 - sizeof(int) * 3)
+#define SIP "127.0.0.1"             //server IP
+#define PACKET_SIZE (1024 - sizeof(int) * 4)
 #define TEXTFILETYPES 7
 const int MAXLOGIN = 100;
 const int MAXSUFFIX = 100;
@@ -50,7 +51,7 @@ enum MSGTAG
     MSG_SENDFILE = 4,         // 发送                  服务器使用
     MSG_SUCCESSED = 5,         // 传输完成              两者都使用
     MSG_OPENFILE_FAILD = 6,          // 告诉客户端文件找不到  客户端使用
-    MSG_CLIENTREADSENT = 7,        //客户端发送路径和文件大小
+    MSG_CLIENTREADSENT = 7,        // client ask to put, send filename and size to server, get server data port
     MSG_SERVERREAD = 8,        //服务端申请空间
     MSG_CLIENTSENT = 9,            //客户端传输
     MSG_PWD = 10,
@@ -63,7 +64,9 @@ enum MSGTAG
     MSG_SAMEDIR =17,       //same dir name,   CLIENT
     MSG_CD =18,         //cd to a directory , SERVER
     MSG_CDFAILED =19,   //cd failed,   CLIENT
-    MSG_NULLNAME =20  //NAME=null,   CLIENT
+    MSG_NULLNAME =20,  //NAME=null,   CLIENT
+    MSG_RECVFAILED = 21,     // recv failed, CLIENT
+    MSG_EMPTYFILE = 22      // try to send empty file, CLIENT
 };
 
 #pragma pack(1)                     // 设置结构体1字节对齐**************
@@ -71,6 +74,7 @@ enum MSGTAG
 struct MsgHeader                    // 封装消息头
 {
     enum MSGTAG msgID;              // 当前消息标记   4
+    int port;
     union MyUnion
     {
         struct Mystruct
@@ -103,7 +107,7 @@ bool closeSocket();
 void connectToHost();
 
 // 处理消息
-bool processMsg(SOCKET serfd);
+bool processMsg(SOCKET);
 
 // 获取文件名
 void downloadFileName(SOCKET serfd, char* cmd);
@@ -118,7 +122,7 @@ bool writeFile(SOCKET, struct MsgHeader*);
 bool clientReadySend(SOCKET, char* cmd);
 
 //准备开始发送文件
-bool sendFile(SOCKET, struct MsgHeader*);
+bool sendFile(struct MsgHeader*);
 
 //yxy新加的三个函数
 void readMessage(struct MsgHeader*);
@@ -138,3 +142,5 @@ void requestMkdir(SOCKET serfd, char* cmd);
 void requestCd(SOCKET serfd, char* cmd);
 
 void printHelp();
+
+bool bindSockPort(SOCKET* socket, int port);
