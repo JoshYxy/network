@@ -25,6 +25,7 @@
 
 #pragma comment(lib,"ws2_32.lib")  // 加载静态库
 #include <stdbool.h>
+#include <unistd.h>
 #include <sys/stat.h>       // for dir check
 
 
