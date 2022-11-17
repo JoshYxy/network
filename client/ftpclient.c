@@ -92,7 +92,7 @@ bool initSocket()
     #ifdef _WIN32
         WSADATA wsadata;
 
-            if (0 != WSAStartup(MAKEWORD(2, 2), &wsadata))        // succeed, return 0
+            if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)        // succeed, return 0
             {
                 printf("WSAStartup faild: %d\n", WSAGetLastError());
                 return false;
@@ -108,7 +108,7 @@ bool initSocket()
 bool closeSocket()
 {
     #ifdef _WIN32
-        if (0 != WSACleanup())
+        if (WSACleanup() != 0)
             {
                 printf("WSACleanup faild: %d\n", WSAGetLastError());
                 return false;
@@ -144,7 +144,7 @@ void connectToHost()
 
     // create server socket (addr, port, the AF_INET is IPV4)
     SOCKET conSoc = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (INVALID_SOCKET == conSoc)
+    if (conSoc == INVALID_SOCKET)
     {
         printf("socket faild:%d", GET_ERROR);
         return;
@@ -162,7 +162,7 @@ void connectToHost()
         serAddr.sin_addr.s_addr = inet_addr(SIP);
     #endif
 
-    if (0 != connect(conSoc, (struct sockaddr*)&serAddr, sizeof(serAddr)))
+    if (connect(conSoc, (struct sockaddr*)&serAddr, sizeof(serAddr)) != 0)
     {
         printf("connectToHost: connect faild:%d", GET_ERROR);
         return;
@@ -321,7 +321,7 @@ bool login(SOCKET serfd) {
         strcpy(send_msg.myUnion.fileInfo.fileName, username);
         strcat(send_msg.myUnion.fileInfo.fileName, " ");
         strcat(send_msg.myUnion.fileInfo.fileName, password);
-        if (SOCKET_ERROR == send(serfd, (char*)&send_msg, sizeof(struct MsgHeader), 0))
+        if (send(serfd, (char*)&send_msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
         {
             printf("login: Client send error: %d\n", GET_ERROR);
             return false;
@@ -347,7 +347,7 @@ void readMessage(struct MsgHeader* pmsg) {
 void requestPwd(SOCKET serfd) {
     struct MsgHeader msg;
     msg.msgID = MSG_PWD;
-    if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0))
+    if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
     {
         printf("requestPwd: Client send error: %d\n", GET_ERROR);
         return;
@@ -356,7 +356,7 @@ void requestPwd(SOCKET serfd) {
 void requestLs(SOCKET serfd) {
     struct MsgHeader msg;
     msg.msgID = MSG_LS;
-    if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0))
+    if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
     {
         printf("requestLs: Client send error: %d\n", GET_ERROR);
         return;
@@ -373,7 +373,7 @@ void downloadFileName(SOCKET serfd, char* cmd)
 
     file.msgID = MSG_FILENAME;                               // MSG_FILENAME = 1
     strcpy(file.myUnion.fileInfo.fileName, fileName);
-    if (SOCKET_ERROR == send(serfd, (char*)&file, sizeof(struct MsgHeader), 0))   // send to server for the first time
+    if (send(serfd, (char*)&file, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // send to server for the first time
     {
         printf("downloadFileName: Client send error: %d\n", GET_ERROR);
         return;
@@ -395,7 +395,7 @@ void readyread(SOCKET serfd, struct MsgHeader* pmsg) {
         struct MsgHeader msg;  // MSG_SENDFILE = 4
         msg.msgID = MSG_SENDFILE;
 
-        if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0))   // Send the second time
+        if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // Send the second time
         {
             printf("readyread: Client send error: %d\n", GET_ERROR);
             return;
@@ -415,7 +415,7 @@ bool writeFile(SOCKET serfd, struct MsgHeader* pmsg)
     // get MSG_READY_READ, connect to server
     // init dataSocket
     SOCKET dataSoc = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (INVALID_SOCKET == dataSoc)
+    if (dataSoc == INVALID_SOCKET)
     {
         printf("sendFile: socket faild:%d", GET_ERROR);
         return false;
@@ -434,7 +434,7 @@ bool writeFile(SOCKET serfd, struct MsgHeader* pmsg)
     #endif
 
     printf("Connecting to port:%d\n", ntohs(dataAddr.sin_port));
-    if (0 != connect(dataSoc, (struct sockaddr*)&dataAddr, sizeof(dataAddr)))
+    if (connect(dataSoc, (struct sockaddr*)&dataAddr, sizeof(dataAddr)) != 0)
     {
         printf("sendFile: connect faild:%d\n", GET_ERROR);
         return false;
@@ -486,7 +486,7 @@ bool writeFile(SOCKET serfd, struct MsgHeader* pmsg)
             free(g_fileBuf);
             g_fileBuf = NULL;
 
-            if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0))
+            if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
             {
                 printf("writeFile: Client send error: %d\n", GET_ERROR);
                 return false;
@@ -575,7 +575,7 @@ bool clientReadySend(SOCKET conSoc, char* cmd){
     msg.msgID = MSG_CLIENTREADSENT;
     strcpy(msg.myUnion.fileInfo.fileName, fileName);
     msg.myUnion.fileInfo.fileSize = g_fileSize;
-    if (SOCKET_ERROR == send(conSoc, (char*)&msg, sizeof(struct MsgHeader), 0))
+    if (send(conSoc, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
     {
         printf("clientReadySend: Client send error: %d\n", GET_ERROR);
         return false;
@@ -587,7 +587,7 @@ bool clientReadySend(SOCKET conSoc, char* cmd){
 bool sendFile(struct MsgHeader* pms) {
     // init dataSocket
     SOCKET dataSoc = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (INVALID_SOCKET == dataSoc)
+    if (dataSoc == INVALID_SOCKET)
     {
         printf("sendFile: socket faild:%d", GET_ERROR);
         return false;
@@ -606,7 +606,7 @@ bool sendFile(struct MsgHeader* pms) {
     #endif
 
     printf("Connecting to port:%d\n", ntohs(dataAddr.sin_port));
-    if (0 != connect(dataSoc, (struct sockaddr*)&dataAddr, sizeof(dataAddr)))
+    if (connect(dataSoc, (struct sockaddr*)&dataAddr, sizeof(dataAddr)) != 0)
     {
         printf("sendFile: connect faild:%d\n", GET_ERROR);
         return false;
@@ -637,7 +637,7 @@ bool sendFile(struct MsgHeader* pms) {
 
         memcpy(msg.myUnion.packet.buf, g_fileBuf + msg.myUnion.packet.nStart, msg.myUnion.packet.nsize);
 
-        if (SOCKET_ERROR == send(dataSoc, (char*)&msg, sizeof(struct MsgHeader), 0))  // send to server
+        if (send(dataSoc, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)  // send to server
         {
             printf("sendFile: Sending file failed: %d\n", GET_ERROR);
         }
@@ -657,7 +657,7 @@ void deleteFile(SOCKET serfd, char*cmd){
     msg.msgID = MSG_DELETE;
     strcpy(msg.myUnion.fileInfo.fileName,cmd);
     printf("%s\n",msg.myUnion.fileInfo.fileName);
-    if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0)) printf("deleteFile: Message send error: %d\n", GET_ERROR);
+    if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("deleteFile: Message send error: %d\n", GET_ERROR);
 }
 void requestMkdir(SOCKET serfd, char* cmd){
     struct MsgHeader msg;
@@ -665,7 +665,7 @@ void requestMkdir(SOCKET serfd, char* cmd){
     strcpy(directoryName, cmd);
     msg.msgID = MSG_MKDIR;
     strcpy(msg.myUnion.directoryInfo.directoryName,directoryName);
-    if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0))
+    if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
     {
         printf("requestMkdir: Sending file failed: %d\n", GET_ERROR);
     }
@@ -676,7 +676,7 @@ void requestCd(SOCKET serfd, char* cmd){
     strcpy(path, cmd);
     msg.msgID =MSG_CD;
     strcpy(msg.myUnion.directoryInfo.directoryName,path);
-    if (SOCKET_ERROR == send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0))
+    if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
     {
         printf("requestCd: Sending file failed: %d\n", GET_ERROR);
     }

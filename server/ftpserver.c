@@ -75,7 +75,7 @@ bool initSocket()
 #ifdef _WIN32
     WSADATA wsadata;
 
-        if (0 != WSAStartup(MAKEWORD(2, 2), &wsadata))
+        if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)
         {
             printf("WSAStartup failed: %d\n", WSAGetLastError());
             return false;
@@ -92,7 +92,7 @@ bool initSocket()
 bool closeSocket()
 {
 #ifdef _WIN32
-    if (0 != WSACleanup())
+    if (WSACleanup() != 0)
         {
             printf("WSACleanup failed: %d\n", WSAGetLastError());
             return false;
@@ -131,14 +131,14 @@ void listenToClient()
     serAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 #endif
 
-    if (0 != bind(serfd, (struct sockaddr*)&serAddr, sizeof(serAddr)))
+    if (bind(serfd, (struct sockaddr*)&serAddr, sizeof(serAddr)) != 0)
     {
         printf("Bind socket with IP addr and port failed:%d\n", GET_ERROR);
         return;
     }
 
     // listen to client connection
-    if (0 != listen(serfd, 10))                  // 10 is the maximum of the connection queue
+    if (listen(serfd, 10) != 0)                  // 10 is the maximum of the connection queue
     {
         printf("Listen failed:%d\n", GET_ERROR);
         return;
@@ -151,7 +151,7 @@ void listenToClient()
     while(true){
         SOCKET conSock = accept(serfd, (struct sockaddr*)&cliAddr, &len);
 
-        if (INVALID_SOCKET == conSock)
+        if (conSock == INVALID_SOCKET)
         {
             printf("Accept failed:%d\n", GET_ERROR);
             continue;
@@ -205,7 +205,7 @@ bool processMsg(SOCKET conSock)
 
             exitmsg.msgID = MSG_SUCCESSED;
 
-            if (SOCKET_ERROR == send(conSock, (char*)&exitmsg, sizeof(struct MsgHeader), 0))   //send failed
+            if (send(conSock, (char*)&exitmsg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   //send failed
             {
                 printf("send failed: %d\n", GET_ERROR);
                 return false;
@@ -264,7 +264,7 @@ bool auth(SOCKET clifd) {
 
         if(username && password && !strcmp(username, USER) && !strcmp(password, PASS)) {  //compare username and pswd from client
             strcpy(send_msg.myUnion.fileInfo.fileName, "Success");
-            if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
+            if (send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
             {
                 printf("Message send error: %d\n", GET_ERROR);
                 return false;
@@ -273,7 +273,7 @@ bool auth(SOCKET clifd) {
         }
         else if(try < MAXTRY){
             strcpy(send_msg.myUnion.fileInfo.fileName, "Failure");
-            if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
+            if (send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
             {
                 printf("Message send error: %d\n", GET_ERROR);
                 return false;
@@ -281,7 +281,7 @@ bool auth(SOCKET clifd) {
         }
     }
     strcpy(send_msg.myUnion.fileInfo.fileName, "ReachMax");
-    if (SOCKET_ERROR == send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0))
+    if (send(clifd, (const char *)&send_msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
     {
         printf("Message send error: %d\n", GET_ERROR);
         return false;
@@ -330,7 +330,7 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
     FILE* pread;
     // judge the file type from its suffix
     bool isText = false;
-    for(int i=0;i<TEXTFILETYPES;i++){
+    for(int i=0; i < TEXTFILETYPES; i++){
         if(!strcmp(text,textFiles[i])){
             isText = true;
             break;
@@ -353,7 +353,7 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
         struct MsgHeader msg;
         msg.msgID = MSG_OPENFILE_FAILD;                                             // MSG_OPENFILE_FAILD = 6
 
-        if (SOCKET_ERROR == send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0))   // send failed
+        if (send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // send failed
         {
             printf("Send failed: %d\n", GET_ERROR);
         }
@@ -366,13 +366,13 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
     strcpy(path,"/");
     strcpy(path,tfname);
     struct stat status;
-    stat( path, &status );
+    stat(path, &status );
     if((status.st_mode & S_IFDIR)){
-        printf("Invalid file: Can't send a dir:[%s]!\n",tfname);
+        printf("Invalid file: Can't send a dir:[%s]!\n", tfname);
         struct MsgHeader msg;
         msg.msgID = MSG_OPENFILE_FAILD;                                             // MSG_OPENFILE_FAILD = 6
 
-        if (SOCKET_ERROR == send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0))   // send failed
+        if (send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // send failed
         {
             printf("Send failed: %d\n", GET_ERROR);
         }
@@ -389,7 +389,8 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
         // send failed msg
         struct MsgHeader failMsg;
         failMsg.msgID = MSG_EMPTYFILE;
-        if (SOCKET_ERROR == send(clifd, (char*)&failMsg, sizeof(struct MsgHeader), 0)) printf("readFile: Send to client failed!\n");
+        if (send(clifd, (char*)&failMsg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
+            printf("readFile: Send to client failed!\n");
         return false;
     }
     fseek(pread, 0, SEEK_SET);
@@ -416,7 +417,7 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
     fclose(pread);
 
     // send filesize to client
-    if(SOCKET_ERROR == send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0)) {
+    if(send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) {
         printf("message send error: %d\n", GET_ERROR);
         return false;
     }             // send filename, suffix and file size to client, first send
@@ -430,7 +431,7 @@ void sendMessage(SOCKET clifd, char* message) {
     msg.msgID = MSG_RECV;
     strcpy(msg.myUnion.fileInfo.fileName, message);
 
-    if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0))
+    if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
     {
         printf("message send error: %d\n", GET_ERROR);
         return;
@@ -468,7 +469,7 @@ bool sendFile(SOCKET clifd, struct MsgHeader* pms){
     struct sockaddr_in bindAddr;
     socklen_t address_len = sizeof(bindAddr);
 
-    if (0 != bind(dataSock, (struct sockaddr*)&dataAddr, sizeof(dataAddr)))
+    if (bind(dataSock, (struct sockaddr*)&dataAddr, sizeof(dataAddr)) != 0)
     {
         printf("serverReady: Bind socket with IP addr and port failed:%d\n", GET_ERROR);
         getsockname(dataSock,(struct sockaddr*)&bindAddr,&address_len);
@@ -479,7 +480,7 @@ bool sendFile(SOCKET clifd, struct MsgHeader* pms){
     printf("Binded server address = %s:%d\n", inet_ntoa(bindAddr.sin_addr), ntohs(bindAddr.sin_port));
     msg.port = htons(bindAddr.sin_port);
     // send data port number
-    if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0))   // send the second time
+    if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // send the second time
     {
         printf("serverReady: Send to client error: %d\n", GET_ERROR);
         return false;
@@ -487,7 +488,7 @@ bool sendFile(SOCKET clifd, struct MsgHeader* pms){
 
     printf("Listening data port...\n");
     // listen to client connection
-    if (0 != listen(dataSock, 10))
+    if (listen(dataSock, 10) != 0)
     {
         printf("serverReady: Listen failed:%d\n", GET_ERROR);
         return false;
@@ -498,7 +499,7 @@ bool sendFile(SOCKET clifd, struct MsgHeader* pms){
     int len = sizeof(cliAddr);
 
     SOCKET dataSocket = accept(dataSock, (struct sockaddr*)&cliAddr, &len);
-    if (INVALID_SOCKET == dataSocket)
+    if (dataSocket == INVALID_SOCKET)
     {
         printf("Accept failed:%d\n", GET_ERROR);
         return false;
@@ -525,7 +526,7 @@ bool sendFile(SOCKET clifd, struct MsgHeader* pms){
         // copy data from local cache buffer to packet
         memcpy(dataMsg.myUnion.packet.buf, g_fileBuf + dataMsg.myUnion.packet.nStart, dataMsg.myUnion.packet.nsize);
 
-        if (SOCKET_ERROR == send(dataSocket, (char*)&dataMsg, sizeof(struct MsgHeader), 0))  // send packet to client
+        if (send(dataSocket, (char*)&dataMsg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)  // send packet to client
         {
             printf("Send file failed: %d\n", GET_ERROR);
         }
@@ -579,7 +580,7 @@ void serverReady(SOCKET clifd, struct MsgHeader* pmsg){
         struct sockaddr_in bindAddr;
         socklen_t address_len = sizeof(bindAddr);
 
-        if (0 != bind(dataSock, (struct sockaddr*)&dataAddr, sizeof(dataAddr)))
+        if (bind(dataSock, (struct sockaddr*)&dataAddr, sizeof(dataAddr)) != 0)
         {
             printf("serverReady: Bind socket with IP addr and port failed:%d\n", GET_ERROR);
             getsockname(dataSock,(struct sockaddr*)&bindAddr,&address_len);
@@ -593,7 +594,7 @@ void serverReady(SOCKET clifd, struct MsgHeader* pmsg){
         msg.msgID = MSG_SERVERREAD;
         msg.port = htons(bindAddr.sin_port);
         // send data port number
-        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0))   // send the second time
+        if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // send the second time
         {
             printf("serverReady: Send to client error: %d\n", GET_ERROR);
             return;
@@ -603,7 +604,7 @@ void serverReady(SOCKET clifd, struct MsgHeader* pmsg){
 
         printf("Listening data port...\n");
         // listen to client connection
-        if (0 != listen(dataSock, 10))
+        if (listen(dataSock, 10) != 0)
         {
             printf("serverReady: Listen failed:%d\n", GET_ERROR);
             return;
@@ -614,7 +615,7 @@ void serverReady(SOCKET clifd, struct MsgHeader* pmsg){
         int len = sizeof(cliAddr);
 
         SOCKET dataSocket = accept(dataSock, (struct sockaddr*)&cliAddr, &len);
-        if (INVALID_SOCKET == dataSocket)
+        if (dataSocket == INVALID_SOCKET)
         {
             printf("Accept failed:%d\n", GET_ERROR);
             return;
@@ -632,7 +633,8 @@ void serverReady(SOCKET clifd, struct MsgHeader* pmsg){
                 struct MsgHeader failMsg;
                 failMsg.msgID = MSG_RECVFAILED;
                 // send back to client
-                if (SOCKET_ERROR == send(clifd, (const char *)&failMsg, sizeof(struct MsgHeader), 0)) printf("serverReady: Send to client MSG_RECVFAILED error: %d\n", GET_ERROR);
+                if (send(clifd, (const char *)&failMsg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
+                    printf("serverReady: Send to client MSG_RECVFAILED error: %d\n", GET_ERROR);
                 break;
             }
             // get the recved msg
@@ -704,11 +706,11 @@ bool deletefile(SOCKET clifd, struct MsgHeader* pmsg){
     strcat(deleteFilename, suffix);
 
     // find if the file exist
-    if(access(deleteFilename, F_OK) !=0 ){
+    if(access(deleteFilename, F_OK) != 0){
         // file doesn't exist, send back failed msg.
         msg.msgID = MSG_NOFILE;
         // send back to client
-        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("deletefile: Send to client MSG_NOFILE error: %d\n", GET_ERROR);
+        if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("deletefile: Send to client MSG_NOFILE error: %d\n", GET_ERROR);
         else printf("deletefile: No file.\n");
         return false;
     }
@@ -718,14 +720,14 @@ bool deletefile(SOCKET clifd, struct MsgHeader* pmsg){
         // deletion failed
         msg.msgID = MSG_DELETIONFAILED;
         // send back to client
-        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("deletefile: Send to client MSG_DELETIONFAILED error: %d\n", GET_ERROR);
+        if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("deletefile: Send to client MSG_DELETIONFAILED error: %d\n", GET_ERROR);
         else printf("deletefile: MSG_DELETIONFAILED, %d.\n",errno);
         return false;
     }
 
     // deletion succeed
     msg.msgID = MSG_SUCCESSED;
-    if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("deletefile: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
+    if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("deletefile: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
     else printf("deletefile: SUCCESS!\n");
     return true;
 }
@@ -744,18 +746,18 @@ bool makeDirectory(SOCKET clifd, struct MsgHeader* pmsg){
             #endif
             if(res == -1){
                 msg.msgID =MSG_NULLNAME;
-                if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("mkdir: Send to client MSG_NULLNAME error: %d\n", GET_ERROR);
+                if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("mkdir: Send to client MSG_NULLNAME error: %d\n", GET_ERROR);
                 else printf("mkdir: make an empty name directory!\n");
                 return false;
             }
         msg.msgID = MSG_SUCCESSED;
-        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("mkdir: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
+        if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("mkdir: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
         else printf("mkdir: SUCCESS!\n");
         return true;
     }
     else{//exist
         msg.msgID =MSG_SAMEDIR;
-        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("mkdir: Send to client MSG_SAMEDIR error: %d\n", GET_ERROR);
+        if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("mkdir: Send to client MSG_SAMEDIR error: %d\n", GET_ERROR);
         else printf("mkdir: MSG_SAMEDIR, %d.\n",errno);
         return false;
     }
@@ -769,20 +771,20 @@ bool chDirectory(SOCKET clifd, struct MsgHeader* pmsg){
     if (!strcmp(path, "..")) {//parent directory
         chdir("..");
         msg.msgID = MSG_SUCCESSED;
-        if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("cd(parent): Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
+        if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("cd(parent): Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
         else printf("cd(parent): SUCCESS!\n");
         return true;
     }
     else {
         if(chdir(path)==0){//success
             msg.msgID = MSG_SUCCESSED;
-            if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("cd: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
+            if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("cd: Send to client MSG_SUCCESSED error: %d\n", GET_ERROR);
             else printf("cd: SUCCESS!\n");
             return true;
         }
         else{//fail
             msg.msgID =MSG_CDFAILED;
-            if (SOCKET_ERROR == send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0)) printf("cd: Send to client MSG_CDFAILED error: %d\n", GET_ERROR);
+            if (send(clifd, (const char *)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("cd: Send to client MSG_CDFAILED error: %d\n", GET_ERROR);
             else printf("cd: MSG_CDFAILED, %d.\n",errno);
             return false;
         }
