@@ -592,9 +592,6 @@ bool sendFile(struct MsgHeader* pms) {
 
         printf("Sending: %.2f%%\r", ((currsize)/(double)g_fileSize)*100);
         fflush(stdout);
-        #ifdef WIN32
-                printf("\33[2K\r");
-        #endif
     }
 
     printf("Sending: 100.00%%\n");
