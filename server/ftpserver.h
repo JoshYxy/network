@@ -126,6 +126,7 @@ void serverReady(SOCKET, struct MsgHeader*);
  
 //开始写文件
 bool writeFile(SOCKET , struct MsgHeader* );
+
 //yxy新加的两个函数
 void sendMessage(SOCKET, char*);
 

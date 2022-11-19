@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <sys/stat.h>       // for dir check
 
-
 #define SPORT 8888                 // 服务器端口号
 #define SIP "127.0.0.1"             //server IP
 #define PACKET_SIZE (1024 - sizeof(int) * 4)
@@ -40,7 +39,6 @@ extern int errno;
 int geterror(){return errno;}
 
 char textFiles[][TEXTFILETYPES] = {".txt",".c",".h",".css",".js",".php",".html"};
-
 
 // 定义标记
 enum MSGTAG
@@ -143,5 +141,3 @@ void requestMkdir(SOCKET serfd, char* cmd);
 void requestCd(SOCKET serfd, char* cmd);
 
 void printHelp();
-
-bool bindSockPort(SOCKET* socket, int port);

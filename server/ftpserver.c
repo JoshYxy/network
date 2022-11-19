@@ -124,7 +124,7 @@ void listenToClient()
     struct sockaddr_in serAddr;
 
     serAddr.sin_family = AF_INET;
-    serAddr.sin_port = htons(SPORT);             // htons set local byte sequence to network sequence
+    serAddr.sin_port = htons(SPORT);
 #ifdef _WIN32
     serAddr.sin_addr.S_un.S_addr = ADDR_ANY;     // listen to all network card of the pc
 #else
@@ -148,6 +148,7 @@ void listenToClient()
     struct sockaddr_in cliAddr;
     int len = sizeof(cliAddr);
 
+    // always on server
     while(true){
         SOCKET conSock = accept(serfd, (struct sockaddr*)&cliAddr, &len);
 
@@ -195,13 +196,13 @@ bool processMsg(SOCKET conSock)
     memset(inf, 0, sizeof(inf));
     switch (msg->msgID)
     {
-        case MSG_FILENAME:          // 1  first recv
+        case MSG_FILENAME:
             readFile(conSock, msg);
             break;
-        case MSG_SENDFILE:          // 4
+        case MSG_SENDFILE:
             sendFile(conSock, msg);
             break;
-        case MSG_SUCCESSED:         // 5
+        case MSG_SUCCESSED:
 
             exitmsg.msgID = MSG_SUCCESSED;
 
@@ -212,12 +213,9 @@ bool processMsg(SOCKET conSock)
             }
             printf("Session Finished!\n");
             break;
-        case MSG_CLIENTREADSENT: //7
+        case MSG_CLIENTREADSENT:
             serverReady(conSock, msg);
             break;
-//        case MSG_CLIENTSENT:
-//            writeFile(conSock, msg);
-//            break;
         case MSG_PWD: //added by yxy
             getMessage(MSG_PWD, inf);
             sendMessage(conSock, inf);
@@ -251,8 +249,7 @@ bool auth(SOCKET clifd) {
     while(try < MAXTRY) {
         try++;
         int nRes = recv(clifd, g_recvBuf, 1024, 0);
-        if (nRes <= 0)
-        {
+        if (nRes <= 0) {
             printf("Client leaving...%d\n", GET_ERROR);
             return false;
         }
@@ -293,7 +290,6 @@ void getMessage(int type, char inf[505]) {
     char path[505];
     DIR *dp;
     struct dirent *entry;
-
     switch(type)
     {
         case MSG_PWD:
@@ -311,14 +307,7 @@ void getMessage(int type, char inf[505]) {
             return;
     }
 }
-/*
-*1.The Client wants to download: send the filename to server.
-*2.Server recv the client sent filename: find the file according to the filename, send the file size to client.
-*3.Client recv the file size:  perpare to recv file, alloc memory, when ready, tell the server to send.
-*4.Server recv ready instruction: send file.
-*5.Client start to recv and store data. When complete, tell the server complete.
-*6.Close connection.
-*/
+
 bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
     char text[MAXSUFFIX];
     char tfname[MAXSTRING] ;
@@ -351,7 +340,7 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
         printf("Can't find file: [%s] ...\n", tfname);
 
         struct MsgHeader msg;
-        msg.msgID = MSG_OPENFILE_FAILD;                                             // MSG_OPENFILE_FAILD = 6
+        msg.msgID = MSG_OPENFILE_FAILD;
 
         if (send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // send failed
         {
@@ -370,7 +359,7 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
     if((status.st_mode & S_IFDIR)){
         printf("Invalid file: Can't send a dir:[%s]!\n", tfname);
         struct MsgHeader msg;
-        msg.msgID = MSG_OPENFILE_FAILD;                                             // MSG_OPENFILE_FAILD = 6
+        msg.msgID = MSG_OPENFILE_FAILD;
 
         if (send(clifd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // send failed
         {
@@ -397,7 +386,7 @@ bool readFile(SOCKET clifd, struct MsgHeader* pmsg) {
 
     // send the file size to client
     struct MsgHeader msg;
-    msg.msgID = MSG_FILESIZE;                                       // MSG_FILESIZE = 2
+    msg.msgID = MSG_FILESIZE;
     msg.myUnion.fileInfo.fileSize = g_fileSize;
 
     // send filename and file size to client

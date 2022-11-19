@@ -6,24 +6,6 @@ char g_fileName[256];     // save the file name which the server sent
 char* g_fileBuf;          // store file content
 char g_recvBuf[1024];     // msg buffer
 int g_fileSize;           // total file size
-int controlPort, dataPort;
-
-void readInput(char* buffer, int size)
-{
-    char* nl = NULL;
-    memset(buffer, 0, size);
-
-    if(fgets(buffer, size, stdin) != NULL)
-    {
-        nl = strchr(buffer, '\n');
-        if(nl != 0)
-        {
-            *nl = '\0';
-        }
-    }
-
-    fflush(stdin);
-}
 
 int main(void)
 {
@@ -86,6 +68,23 @@ void _splitpath(const char *path, char *drive, char *dir, char *fname, char *ext
 }
 #endif
 
+void readInput(char* buffer, int size)
+{
+    char* nl = NULL;
+    memset(buffer, 0, size);
+
+    if(fgets(buffer, size, stdin) != NULL)
+    {
+        nl = strchr(buffer, '\n');
+        if(nl != 0)
+        {
+            *nl = '\0';
+        }
+    }
+
+    fflush(stdin);
+}
+
 // init the socket lib in win
 bool initSocket()
 {
@@ -120,28 +119,9 @@ bool closeSocket()
     #endif
 }
 
-bool bindSockPort(SOCKET* socket, int port){
-    struct sockaddr_in socPort;
-    socPort.sin_family = AF_INET;
-    socPort.sin_port = htons(port);
-    // bind client port to socket
-    int res = bind(*socket, (struct sockaddr*)&socPort, sizeof(socPort));
-    if(res == -1 ){
-        printf("bindSockPort: bind faild:%d\n", GET_ERROR);
-        return false;
-    }
-    return true;
-}
-
 // listen the client connection
 void connectToHost()
 {
-
-    // get ports
-    int port = rand()%5000 +1024;
-    controlPort = port;
-    dataPort = port+1;
-
     // create server socket (addr, port, the AF_INET is IPV4)
     SOCKET conSoc = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (conSoc == INVALID_SOCKET)
@@ -149,8 +129,6 @@ void connectToHost()
         printf("socket faild:%d", GET_ERROR);
         return;
     }
-
-//    if(!bindSockPort(&conSoc, controlPort)) return;
 
     // conSoc connect with server IP addr and server port
     struct sockaddr_in serAddr;
@@ -231,45 +209,21 @@ void connectToHost()
 // handle msg
 bool processMsg(SOCKET conSoc){
 
-    recv(conSoc, g_recvBuf, 1024, 0);                     // recv msg
+    recv(conSoc, g_recvBuf, 1024, 0);
     struct MsgHeader* msg = (struct MsgHeader*)g_recvBuf;
-
-    /*
-    MSG_LOGIN = 0,             //登录                 两者都使用
-    MSG_FILENAME = 1,         // 文件名称              服务器使用
-    MSG_FILESIZE = 2,         // 文件大小              客户端使用
-    MSG_READY_READ = 3,         // 准备接受              客户端使用
-    MSG_SENDFILE = 4,         // 发送                  服务器使用
-    MSG_SUCCESSED = 5,         // 传输完成              两者都使用
-    MSG_OPENFILE_FAILD = 6,          // 告诉客户端文件找不到  客户端使用
-    MSG_CLIENTREADSENT = 7,        //客户端发送路径和文件大小
-    MSG_SERVERREAD = 8,        //服务端申请空间
-    MSG_CLIENTSENT = 9,            //客户端传输
-    MSG_PWD = 10,
-    MSG_RECV = 11,
-    MSG_LS = 12,
-    MSG_DELETE = 13,        //delete file on server, SERVER
-    MSG_NOFILE = 14,        //delete file doesn't exist, CLIENT
-    MSG_DELETIONFAILED = 15,    //deletion failed, CLIENT
-     MSG_MKDIR = 16,         //mkdir a directory, SERVER
-    MSG_SAMEDIR =17,       //same dir name,   CLIENT
-     MSG_CD =18,         //cd to a directory , SERVER
-    MSG_CDFAILED =19,   //cd failed,   CLIENT
-     MSG_NULLNAME =20  //NAME=null,   CLIENT
-    */
 
     switch (msg->msgID)
     {
-        case MSG_OPENFILE_FAILD:         // 6
+        case MSG_OPENFILE_FAILD:
             printf("File doesn't exist on server or is invalid!\n");
             return false;
-        case MSG_FILESIZE:               // 2  recv for the first time
+        case MSG_FILESIZE:
             readyread(conSoc, msg);
             break;
-        case MSG_READY_READ:             // 3
+        case MSG_READY_READ:
             writeFile(conSoc, msg);
             break;
-        case MSG_SUCCESSED:              // 5
+        case MSG_SUCCESSED:
             printf("Session Complete!\n");
             return false;
         case MSG_SERVERREAD:
@@ -301,7 +255,6 @@ bool processMsg(SOCKET conSoc){
             printf("Can't get a empty file from server!\n");
             return false;
     }
-
     return true;
 }
 
@@ -339,11 +292,10 @@ bool login(SOCKET serfd) {
 }
 
 void readMessage(struct MsgHeader* pmsg) {
-
     char *message = pmsg->myUnion.fileInfo.fileName;
     printf("%s\n", message);
-
 }
+
 void requestPwd(SOCKET serfd) {
     struct MsgHeader msg;
     msg.msgID = MSG_PWD;
@@ -353,6 +305,7 @@ void requestPwd(SOCKET serfd) {
         return;
     }
 }
+
 void requestLs(SOCKET serfd) {
     struct MsgHeader msg;
     msg.msgID = MSG_LS;
@@ -362,8 +315,8 @@ void requestLs(SOCKET serfd) {
         return;
     }
 }
-void downloadFileName(SOCKET serfd, char* cmd)
-{
+
+void downloadFileName(SOCKET serfd, char* cmd) {
     printf("Now start recving file from server:");
     char fileName[1024];
     struct MsgHeader file;
@@ -371,9 +324,9 @@ void downloadFileName(SOCKET serfd, char* cmd)
     strcpy(fileName, cmd);
     printf("%s\n",fileName);
 
-    file.msgID = MSG_FILENAME;                               // MSG_FILENAME = 1
+    file.msgID = MSG_FILENAME;
     strcpy(file.myUnion.fileInfo.fileName, fileName);
-    if (send(serfd, (char*)&file, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // send to server for the first time
+    if (send(serfd, (char*)&file, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
     {
         printf("downloadFileName: Client send error: %d\n", GET_ERROR);
         return;
@@ -386,27 +339,24 @@ void readyread(SOCKET serfd, struct MsgHeader* pmsg) {
     strcpy(g_fileName, pmsg->myUnion.fileInfo.fileName);
 
     g_fileBuf = calloc(g_fileSize + 1, sizeof(char));         // apply for memory
-
     if (g_fileBuf == NULL)
     {
         printf("Alloc Failed!\n");
     }
     else{
-        struct MsgHeader msg;  // MSG_SENDFILE = 4
+        struct MsgHeader msg;
         msg.msgID = MSG_SENDFILE;
 
-        if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)   // Send the second time
+        if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR)
         {
             printf("readyread: Client send error: %d\n", GET_ERROR);
             return;
         }
     }
-
     printf("Ready to recv file,filename:%s\tsize:%d\n",pmsg->myUnion.fileInfo.fileName, pmsg->myUnion.fileInfo.fileSize);
 }
 
-bool writeFile(SOCKET serfd, struct MsgHeader* pmsg)
-{
+bool writeFile(SOCKET serfd, struct MsgHeader* pmsg) {
     if (g_fileBuf == NULL){
         printf("Didn't prepare memory for file! ERROR!\n");
         return false;
@@ -421,12 +371,10 @@ bool writeFile(SOCKET serfd, struct MsgHeader* pmsg)
         return false;
     }
 
-//    if(!bindSockPort(&dataSoc, dataPort)) return false;
-
     // get the server data port, connect it with dataSoc
     struct sockaddr_in dataAddr;
     dataAddr.sin_family = AF_INET;
-    dataAddr.sin_port = ntohs(pmsg->port);                       // htons convert local byte sequence to network byte sequence
+    dataAddr.sin_port = ntohs(pmsg->port);
     #ifdef _WIN32
         dataAddr.sin_addr.S_un.S_addr = inet_addr(SIP); // server IP addr
     #else
@@ -567,7 +515,6 @@ bool clientReadySend(SOCKET conSoc, char* cmd){
 
     fread(g_fileBuf, sizeof(char), g_fileSize, pread);
     g_fileBuf[g_fileSize] = '\0';
-
     fclose(pread);
 
     // send put signal to server
@@ -593,12 +540,10 @@ bool sendFile(struct MsgHeader* pms) {
         return false;
     }
 
-//    if(!bindSockPort(&dataSoc, dataPort)) return false;
-
     // get the server data port, connect it with dataSoc
     struct sockaddr_in dataAddr;
     dataAddr.sin_family = AF_INET;
-    dataAddr.sin_port = ntohs(pms->port);                       // htons convert local byte sequence to network byte sequence
+    dataAddr.sin_port = ntohs(pms->port);
     #ifdef _WIN32
         dataAddr.sin_addr.S_un.S_addr = inet_addr(SIP); // server IP addr
     #else
@@ -618,7 +563,7 @@ bool sendFile(struct MsgHeader* pms) {
     msg.msgID = MSG_CLIENTSENT;
 
     // if the total size of the whole file is larger than a packet size, dispatch
-    for (size_t i = 0; i < g_fileSize; i += PACKET_SIZE)                       // PACKET_SIZE = 1012
+    for (size_t i = 0; i < g_fileSize; i += PACKET_SIZE)
     {
         long currsize;
         msg.myUnion.packet.nStart = i;
@@ -659,6 +604,7 @@ void deleteFile(SOCKET serfd, char*cmd){
     printf("%s\n",msg.myUnion.fileInfo.fileName);
     if (send(serfd, (char*)&msg, sizeof(struct MsgHeader), 0) == SOCKET_ERROR) printf("deleteFile: Message send error: %d\n", GET_ERROR);
 }
+
 void requestMkdir(SOCKET serfd, char* cmd){
     struct MsgHeader msg;
     char directoryName[256];
@@ -670,6 +616,7 @@ void requestMkdir(SOCKET serfd, char* cmd){
         printf("requestMkdir: Sending file failed: %d\n", GET_ERROR);
     }
 }
+
 void requestCd(SOCKET serfd, char* cmd){
     struct MsgHeader msg;
     char path[256];
@@ -681,6 +628,7 @@ void requestCd(SOCKET serfd, char* cmd){
         printf("requestCd: Sending file failed: %d\n", GET_ERROR);
     }
 }
+
 void printHelp(){
     printf("***************************************\n");
     printf("[ Enter valid commands below to use FTP system! ]\n");
